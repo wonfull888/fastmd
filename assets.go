@@ -6,3 +6,8 @@ import "embed"
 //
 //go:embed web
 var WebFS embed.FS
+
+// InstallSH embeds the install.sh script into the binary.
+//
+//go:embed install.sh
+var InstallSH []byte

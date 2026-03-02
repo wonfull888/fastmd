@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -108,18 +107,10 @@ func main() {
 		})
 	})
 
-	// install.sh — serve embedded file, fallback to disk
+	// install.sh — serve from embedded binary
 	e.GET("/install.sh", func(c echo.Context) error {
-		b, err := fastmd.WebFS.ReadFile("web/install.sh")
-		if err != nil {
-			// fallback: try disk
-			b, err = os.ReadFile("install.sh")
-			if err != nil {
-				return c.String(http.StatusNotFound, "install.sh not found")
-			}
-		}
 		c.Response().Header().Set("Content-Type", "text/plain")
-		return c.String(http.StatusOK, string(b))
+		return c.String(http.StatusOK, string(fastmd.InstallSH))
 	})
 
 	e.GET("/v1/version", func(c echo.Context) error {
