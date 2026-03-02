@@ -1,78 +1,83 @@
 {{define "content"}}
-<section class="hero section" id="top">
-  <div class="container hero-grid">
-    <div class="hero-copy">
-      <p class="eyebrow">For AI Agents &amp; Terminal Developers</p>
-      <h1>
-        <span class="headline-main">Ship Markdown</span>
-        <span class="headline-gradient">at terminal speed.</span>
-      </h1>
-      <p class="hero-sub">
-        <strong>fastmd.dev</strong> is the fastest Markdown relay for agents and developers.
-        Pipe one command, get one short link, keep your context clean.
-      </p>
-      <div class="hero-actions">
-        <a href="/#install" class="btn btn-primary">Get Started (Free)</a>
-        <button type="button" class="install-command" data-copy="curl -fsSL https://fastmd.dev/install.sh | sh">
-          <span class="install-label">Copy install command</span>
-          <code>curl -fsSL https://fastmd.dev/install.sh | sh</code>
-        </button>
-      </div>
-      <p class="token-note">Token 仅在本地存储且经过哈希加密存储在后端</p>
+<section class="hero" id="top">
+  <div class="container hero-inner">
+    <a class="hero-pill" href="#install">fastmd.dev · Terminal-native Markdown relay</a>
+
+    <h1 class="hero-title">
+      fastmd.dev ships Markdown
+      <span class="hero-title-gradient">at Linear speed.</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      Push from CLI or AI agent, return one short URL, keep context clean.
+      Human-readable HTML and machine-readable Markdown share the same link.
+    </p>
+
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#install">Get Started (Free)</a>
+      <button
+        type="button"
+        class="btn btn-secondary install-copy"
+        data-copy="curl -fsSL https://fastmd.dev/install.sh | sh"
+      >
+        <span class="install-copy-label">Copy install command</span>
+        <code>curl -fsSL https://fastmd.dev/install.sh | sh</code>
+      </button>
     </div>
 
-    <div class="hero-terminal">
-      <div class="terminal-header">
-        <span class="dot red"></span>
-        <span class="dot yellow"></span>
-        <span class="dot green"></span>
-        <span class="terminal-title">zsh · fastmd.dev</span>
+    <p class="token-note">Token 仅在本地存储且经过哈希加密存储在后端</p>
+
+    <div class="terminal-shell" aria-label="Terminal simulation">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-name">zsh · fastmd.dev</span>
       </div>
-      <div class="terminal-screen" id="hero-terminal"></div>
+      <div class="terminal-body" id="hero-terminal"></div>
     </div>
   </div>
 </section>
 
 <section class="section" id="scenes">
   <div class="container">
-    <p class="section-kicker">Use Cases &amp; Examples</p>
-    <h2 class="section-title">Built for real command-line workflows.</h2>
-    <p class="section-sub">One URL for humans, one Markdown endpoint for agents. The same document serves both worlds.</p>
+    <p class="section-label">Use Cases &amp; Cases</p>
+    <h2 class="section-title">Built for teams that live in the terminal.</h2>
 
-    <div class="use-grid">
-      <article class="use-card">
+    <div class="card-grid four">
+      <article class="card">
         <h3>AI Agent Delivery</h3>
-        <p>After an agent completes a task, call <code>POST /v1/push</code> and return only a short URL in chat.</p>
+        <p>Publish task output via <code>POST /v1/push</code> and return a short URL in chat.</p>
       </article>
-      <article class="use-card">
-        <h3>CLI Instant Share</h3>
-        <p>Use <code>cat report.md | fastmd</code> to publish notes, reports, and summaries without opening a browser.</p>
+      <article class="card">
+        <h3>CLI Sharing</h3>
+        <p>Run <code>cat report.md | fastmd</code> and share immediately without browser upload flow.</p>
       </article>
-      <article class="use-card">
+      <article class="card">
         <h3>Machine Consumption</h3>
-        <p>Agents read <code>/:id.md</code> or send <code>Accept: text/plain</code> to get raw Markdown directly.</p>
+        <p>Use <code>/:id.md</code> or <code>Accept: text/plain</code> for raw Markdown ingestion.</p>
       </article>
-      <article class="use-card">
-        <h3>CI/CD Reports</h3>
-        <p>Push deployment or test summaries from pipelines and paste one stable link into PRs and Slack.</p>
+      <article class="card">
+        <h3>CI/CD Summaries</h3>
+        <p>Post deploy and test summaries to one URL for PRs, Slack, and runbooks.</p>
       </article>
     </div>
 
-    <div class="case-row">
-      <article class="case-item">
+    <div class="card-grid three case-grid">
+      <article class="card case">
         <p class="case-tag">Case 01</p>
-        <h4>Post-run report handoff</h4>
-        <p>Agent writes a final `report.md` and publishes to fastmd.dev in under a second.</p>
+        <h4>Agent report handoff</h4>
+        <p>Analyst agent writes `report.md`, fastmd returns URL, manager reviews HTML instantly.</p>
       </article>
-      <article class="case-item">
+      <article class="card case">
         <p class="case-tag">Case 02</p>
-        <h4>Incident note broadcast</h4>
-        <p>On-call engineer shares a runbook snapshot from terminal while incident chat stays readable.</p>
+        <h4>Incident command center</h4>
+        <p>On-call engineer publishes outage notes in terminal, everyone reads the same source.</p>
       </article>
-      <article class="case-item">
+      <article class="card case">
         <p class="case-tag">Case 03</p>
         <h4>Cross-agent memory relay</h4>
-        <p>One agent writes structured Markdown, another agent fetches the `.md` endpoint for follow-up tasks.</p>
+        <p>One agent writes, another agent fetches `.md` endpoint and continues execution.</p>
       </article>
     </div>
   </div>
@@ -80,12 +85,13 @@
 
 <section class="section" id="install">
   <div class="container">
-    <p class="section-kicker">Usage · Install · API</p>
-    <h2 class="section-title">Start in minutes.</h2>
+    <p class="section-label">Usage · Install · API</p>
+    <h2 class="section-title">Everything needed to integrate fastmd.dev.</h2>
 
-    <div class="docs-grid">
-      <div class="docs-column">
-        <h3>Install &amp; CLI usage</h3>
+    <div class="card-grid two docs-grid">
+      <article class="card code-card">
+        <h3>Install and CLI</h3>
+
         <div class="code-block">
           <div class="code-head">
             <span>Install</span>
@@ -93,6 +99,7 @@
           </div>
           <pre><code>curl -fsSL https://fastmd.dev/install.sh | sh</code></pre>
         </div>
+
         <div class="code-block">
           <div class="code-head">
             <span>CLI</span>
@@ -104,10 +111,11 @@ fastmd get x7y2
 fastmd delete x7y2
 fastmd upgrade</code></pre>
         </div>
-      </div>
+      </article>
 
-      <div class="docs-column">
-        <h3>API quick calls</h3>
+      <article class="card code-card">
+        <h3>API Calls</h3>
+
         <div class="code-block">
           <div class="code-head">
             <span>POST /v1/push</span>
@@ -115,42 +123,43 @@ fastmd upgrade</code></pre>
           </div>
           <pre><code>curl -X POST https://fastmd.dev/v1/push \
   -H "Content-Type: application/json" \
-  -d '{"content":"# Hello\nWorld","token":"fmd_live_xxxx"}'</code></pre>
+  -d '{"content":"# Hello\\nWorld","token":"fmd_live_xxxx"}'</code></pre>
         </div>
+
         <div class="code-block">
           <div class="code-head">
-            <span>Read &amp; delete</span>
+            <span>Read / Delete</span>
             <button type="button" class="code-copy" onclick="copyCode(this)">Copy</button>
           </div>
           <pre><code>curl https://fastmd.dev/x7y2.md
 curl -X DELETE https://fastmd.dev/v1/x7y2 \
   -H "Authorization: Bearer fmd_live_xxxx"</code></pre>
         </div>
-      </div>
+      </article>
     </div>
   </div>
 </section>
 
 <section class="section" id="help">
   <div class="container">
-    <p class="section-kicker">Help &amp; FAQ</p>
-    <h2 class="section-title">Everything important in one page.</h2>
+    <p class="section-label">Help &amp; FAQ</p>
+    <h2 class="section-title">No separate docs page. Everything is here.</h2>
 
-    <div class="help-grid">
-      <article class="help-card">
-        <h3>Quick help</h3>
+    <div class="card-grid two">
+      <article class="card help-card">
+        <h3>Quick Help</h3>
         <ul>
-          <li>Token is generated on first run and stored in <code>~/.config/fastmd/token</code>.</li>
+          <li>First run auto-creates token at <code>~/.config/fastmd/token</code>.</li>
           <li>Current payload limit is <strong>1MB</strong> per document.</li>
-          <li>v0.1 stores documents permanently by default.</li>
+          <li>v0.1 stores docs permanently by default.</li>
         </ul>
       </article>
-      <article class="help-card">
+      <article class="card help-card">
         <h3>Troubleshooting</h3>
         <ul>
-          <li>If token is lost, old docs stay readable but cannot be deleted.</li>
-          <li>For raw markdown, always use <code>.md</code> suffix.</li>
-          <li>Need version info: <code>GET /v1/version</code>.</li>
+          <li>Losing token means old docs stay readable but cannot be deleted.</li>
+          <li>Use <code>.md</code> suffix for raw machine read.</li>
+          <li>Check build version with <code>GET /v1/version</code>.</li>
         </ul>
       </article>
     </div>
@@ -158,11 +167,11 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
     <div class="faq-list">
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          Why no signup?
+          Why no signup flow?
           <span>+</span>
         </button>
         <div class="faq-answer">
-          fastmd.dev follows a CLI-first model: token-based ownership without accounts, passwords, or dashboard friction.
+          fastmd.dev is CLI-first: token ownership, no account creation, no dashboard dependency.
         </div>
       </article>
 
@@ -178,21 +187,21 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
 
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          How do agents read clean markdown?
+          How do agents get raw markdown?
           <span>+</span>
         </button>
         <div class="faq-answer">
-          Read <code>https://fastmd.dev/{id}.md</code> or send <code>Accept: text/plain</code> to the normal URL.
+          Call <code>https://fastmd.dev/{id}.md</code> or use <code>Accept: text/plain</code>.
         </div>
       </article>
 
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          Can I self-host?
+          Can I self-host fastmd.dev?
           <span>+</span>
         </button>
         <div class="faq-answer">
-          Yes. fastmd is MIT licensed. Build server binary and run with SQLite storage in your own environment.
+          Yes. fastmd is open-source (MIT), built as a single Go server with SQLite storage.
         </div>
       </article>
     </div>

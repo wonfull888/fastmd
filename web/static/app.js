@@ -3,8 +3,8 @@ function showToast(message) {
   if (!toast) return;
   toast.textContent = message;
   toast.classList.add("show");
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(function () {
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(function () {
     toast.classList.remove("show");
   }, 1800);
 }
@@ -14,7 +14,7 @@ async function copyText(text, successMessage) {
   try {
     await navigator.clipboard.writeText(text);
     showToast(successMessage || "Copied");
-  } catch (_err) {
+  } catch (_error) {
     const input = document.createElement("textarea");
     input.value = text;
     document.body.appendChild(input);
@@ -26,9 +26,9 @@ async function copyText(text, successMessage) {
 }
 
 document.addEventListener("click", function (event) {
-  const copyTrigger = event.target.closest("[data-copy]");
-  if (!copyTrigger) return;
-  copyText(copyTrigger.getAttribute("data-copy"), "Command copied");
+  const trigger = event.target.closest("[data-copy]");
+  if (!trigger) return;
+  copyText(trigger.getAttribute("data-copy"), "Command copied");
 });
 
 function copyCode(button) {
@@ -46,76 +46,77 @@ function copyLink() {
 function toggleFaq(button) {
   const item = button.closest(".faq-item");
   if (!item) return;
-  const isOpen = item.classList.contains("open");
-  document.querySelectorAll(".faq-item.open").forEach(function (openItem) {
-    openItem.classList.remove("open");
+  const alreadyOpen = item.classList.contains("open");
+  document.querySelectorAll(".faq-item.open").forEach(function (node) {
+    node.classList.remove("open");
   });
-  if (!isOpen) {
-    item.classList.add("open");
-  }
+  if (!alreadyOpen) item.classList.add("open");
 }
 
 (function runHeroTerminal() {
-  const terminal = document.getElementById("hero-terminal");
-  if (!terminal) return;
+  const root = document.getElementById("hero-terminal");
+  if (!root) return;
 
   const command = "cat report.md | fastmd";
-  const output = "🚀 https://fastmd.dev/x7y2";
+  const result = "🚀 https://fastmd.dev/x7y2";
 
-  function createLine(className) {
+  function create(type, text) {
     const line = document.createElement("div");
-    line.className = className;
+    line.className = type;
+    line.textContent = text;
     return line;
   }
 
-  function startCycle() {
-    terminal.innerHTML = "";
+  function start() {
+    root.innerHTML = "";
 
-    const commandLine = createLine("term-line");
+    const commandLine = document.createElement("div");
+    commandLine.className = "term-line";
+
     const prompt = document.createElement("span");
     prompt.className = "term-prompt";
     prompt.textContent = "$";
 
-    const commandText = document.createElement("span");
-    commandText.className = "term-command";
+    const content = document.createElement("span");
+    content.className = "term-command";
 
     commandLine.appendChild(prompt);
-    commandLine.appendChild(commandText);
-    terminal.appendChild(commandLine);
+    commandLine.appendChild(content);
+    root.appendChild(commandLine);
 
     let index = 0;
 
-    function typeCommand() {
+    function type() {
       if (index < command.length) {
-        commandText.textContent = command.slice(0, index + 1);
+        content.textContent = command.slice(0, index + 1);
         index += 1;
-        setTimeout(typeCommand, 40);
+        setTimeout(type, 36);
         return;
       }
 
       setTimeout(function () {
-        const outputLine = createLine("term-output");
-        outputLine.textContent = output;
-        terminal.appendChild(outputLine);
+        root.appendChild(create("term-output", result));
 
-        const waitingLine = createLine("term-line");
-        const waitingPrompt = document.createElement("span");
-        waitingPrompt.className = "term-prompt";
-        waitingPrompt.textContent = "$";
+        const waitLine = document.createElement("div");
+        waitLine.className = "term-line";
+
+        const waitPrompt = document.createElement("span");
+        waitPrompt.className = "term-prompt";
+        waitPrompt.textContent = "$";
 
         const cursor = document.createElement("span");
         cursor.className = "term-cursor";
 
-        waitingLine.appendChild(waitingPrompt);
-        waitingLine.appendChild(cursor);
-        terminal.appendChild(waitingLine);
+        waitLine.appendChild(waitPrompt);
+        waitLine.appendChild(cursor);
+        root.appendChild(waitLine);
 
-        setTimeout(startCycle, 2600);
+        setTimeout(start, 2400);
       }, 1000);
     }
 
-    typeCommand();
+    type();
   }
 
-  setTimeout(startCycle, 260);
+  setTimeout(start, 200);
 })();
