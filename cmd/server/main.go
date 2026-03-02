@@ -23,7 +23,7 @@ var Version = "dev"
 var pageTemplates map[string]*template.Template
 
 func loadTemplates() error {
-	pages := []string{"index", "doc", "docs", "help", "404"}
+	pages := []string{"index", "doc", "404"}
 	pageTemplates = make(map[string]*template.Template, len(pages))
 	for _, name := range pages {
 		t, err := template.ParseFS(
@@ -88,22 +88,8 @@ func main() {
 
 	e.GET("/", func(c echo.Context) error {
 		return renderPage(c, http.StatusOK, "index", map[string]interface{}{
-			"Title":       "fastmd — Markdown pipeline for AI Agents",
-			"Description": "Push Markdown from your terminal, get a shareable link instantly. No sign-up required.",
-		})
-	})
-
-	e.GET("/docs", func(c echo.Context) error {
-		return renderPage(c, http.StatusOK, "docs", map[string]interface{}{
-			"Title":       "API & CLI Reference — fastmd",
-			"Description": "Complete API and CLI reference for fastmd.",
-		})
-	})
-
-	e.GET("/help", func(c echo.Context) error {
-		return renderPage(c, http.StatusOK, "help", map[string]interface{}{
-			"Title":       "Help & FAQ — fastmd",
-			"Description": "Common questions about fastmd.",
+			"Title":       "fastmd.dev — Agent-native Markdown relay",
+			"Description": "Push Markdown from terminal or AI agents, get a short link instantly. No signup and no dashboard.",
 		})
 	})
 

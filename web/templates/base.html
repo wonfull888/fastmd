@@ -1,29 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{.Title}} — fastmd</title>
+  <title>{{.Title}}</title>
   <meta name="description" content="{{.Description}}">
+  <meta property="og:title" content="{{.Title}}">
+  <meta property="og:description" content="{{.Description}}">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
-  <nav class="nav">
-    <a href="/" class="nav-logo">fastmd</a>
-    <div class="nav-links">
-      <a href="/docs">Docs</a>
-      <a href="/help">Help</a>
-      <a href="https://github.com/wonfull888/fastmd" target="_blank">GitHub</a>
-    </div>
-  </nav>
+  <header class="site-header">
+    <nav class="nav container">
+      <a href="/" class="brand">fastmd.dev</a>
+      <div class="nav-links">
+        <a href="/#scenes">Use Cases</a>
+        <a href="/#install">Install &amp; API</a>
+        <a href="/#help">Help &amp; FAQ</a>
+        <a href="https://github.com/wonfull888/fastmd" target="_blank" rel="noreferrer" class="nav-github">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
   <main>
     {{template "content" .}}
   </main>
-  <footer class="footer">
-    <p>fastmd — open source under MIT · <a href="https://github.com/wonfull888/fastmd">GitHub</a></p>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© 2026 fastmd.dev · MIT</p>
+      <div class="footer-links">
+        <a href="https://github.com/wonfull888/fastmd" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="/#help">FAQ</a>
+        <a href="/v1/version">API Version</a>
+      </div>
+    </div>
   </footer>
+
+  <div class="toast" id="toast"></div>
   <script src="/static/app.js"></script>
 </body>
+
 </html>
