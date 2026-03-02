@@ -22,6 +22,95 @@ var Version = "dev"
 // pageTemplates holds a separate template set per page.
 var pageTemplates map[string]*template.Template
 
+const homeJSONLD = `{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "fastmd.dev",
+      "url": "https://fastmd.dev",
+      "logo": "https://fastmd.dev/static/og-fastmd.svg"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "fastmd",
+      "url": "https://fastmd.dev",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Linux, macOS, Windows",
+      "description": "Terminal. Cloud. AI. Markdown in milliseconds.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "sameAs": [
+        "https://github.com/wonfull888/fastmd"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where is my token stored?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "On first run, fastmd creates a token and stores it at ~/.config/fastmd/token."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens if I lose my token?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Documents remain readable, but deletion is no longer possible without the original token."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the document size limit?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The current payload limit is 1MB per document."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do documents expire?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In v0.1, documents are stored permanently by default."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is token privacy handled?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The token is stored locally only, and the backend stores only its hash. Raw token values are never stored."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do agents get raw markdown?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Call https://fastmd.dev/{id}.md or use Accept: text/plain."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I self-host fastmd.dev?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. fastmd is open-source (MIT), built as a single Go server with SQLite storage."
+          }
+        }
+      ]
+    }
+  ]
+}`
+
 func loadTemplates() error {
 	pages := []string{"index", "doc", "404"}
 	pageTemplates = make(map[string]*template.Template, len(pages))
@@ -47,6 +136,23 @@ func renderPage(c echo.Context, status int, page string, data map[string]interfa
 	c.Response().WriteHeader(status)
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
 	return tmpl.ExecuteTemplate(c.Response().Writer, "base.html", data)
+}
+
+func requestScheme(c echo.Context) string {
+	if c.Request().TLS != nil || c.Request().Header.Get("X-Forwarded-Proto") == "https" {
+		return "https"
+	}
+	return "http"
+}
+
+func absoluteURL(c echo.Context, path string) string {
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return fmt.Sprintf("%s://%s%s", requestScheme(c), c.Request().Host, path)
 }
 
 func main() {
@@ -87,9 +193,26 @@ func main() {
 	// ── Routes ──
 
 	e.GET("/", func(c echo.Context) error {
+		title := "Born for CLI, Built for AI. | fastmd.dev"
+		description := "Terminal. Cloud. AI. Markdown in milliseconds. Publish from CLI or agents and share instantly with one short link."
+		canonical := "https://fastmd.dev/"
+		ogImage := "https://fastmd.dev/static/og-fastmd.svg"
+
 		return renderPage(c, http.StatusOK, "index", map[string]interface{}{
-			"Title":       "fastmd.dev — Agent-native Markdown relay",
-			"Description": "Push Markdown from terminal or AI agents, get a short link instantly. No signup and no dashboard.",
+			"Title":              title,
+			"Description":        description,
+			"Canonical":          canonical,
+			"Robots":             "index, follow, max-image-preview:large",
+			"OGTitle":            title,
+			"OGDescription":      description,
+			"OGType":             "website",
+			"OGURL":              canonical,
+			"OGImage":            ogImage,
+			"TwitterCard":        "summary_large_image",
+			"TwitterTitle":       title,
+			"TwitterDescription": description,
+			"TwitterImage":       ogImage,
+			"JSONLD":             template.JS(homeJSONLD),
 		})
 	})
 
@@ -131,11 +254,7 @@ func main() {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		}
 
-		scheme := "https"
-		if c.Request().TLS == nil && c.Request().Header.Get("X-Forwarded-Proto") != "https" {
-			scheme = "http"
-		}
-		url := fmt.Sprintf("%s://%s/%s", scheme, c.Request().Host, id)
+		url := absoluteURL(c, "/"+id)
 
 		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": url})
 	})
@@ -160,10 +279,10 @@ func main() {
 
 	// GET /:id  (dual mode: HTML or raw)
 	e.GET("/:id", func(c echo.Context) error {
-		id := c.Param("id")
-		rawMode := strings.HasSuffix(id, ".md") ||
+		idParam := c.Param("id")
+		rawMode := strings.HasSuffix(idParam, ".md") ||
 			c.Request().Header.Get("Accept") == "text/plain"
-		id = strings.TrimSuffix(id, ".md")
+		id := strings.TrimSuffix(idParam, ".md")
 
 		doc, err := db.GetByID(id)
 		if err != nil {
@@ -171,14 +290,24 @@ func main() {
 		}
 		if doc == nil {
 			if rawMode {
+				c.Response().Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 				return c.String(http.StatusNotFound, "not found")
 			}
+			c.Response().Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 			return renderPage(c, http.StatusNotFound, "404", map[string]interface{}{
-				"Title": "Not Found — fastmd",
+				"Title":        "Document not found | fastmd.dev",
+				"Description":  "This shared Markdown document does not exist or has been deleted.",
+				"Canonical":    absoluteURL(c, c.Request().URL.Path),
+				"Robots":       "noindex, nofollow, noarchive",
+				"OGType":       "website",
+				"OGURL":        absoluteURL(c, c.Request().URL.Path),
+				"OGImage":      "https://fastmd.dev/static/og-fastmd.svg",
+				"TwitterImage": "https://fastmd.dev/static/og-fastmd.svg",
 			})
 		}
 
 		if rawMode {
+			c.Response().Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 			c.Response().Header().Set("Content-Type", "text/plain; charset=utf-8")
 			return c.String(http.StatusOK, doc.Content)
 		}
@@ -187,11 +316,21 @@ func main() {
 		if err != nil {
 			htmlContent = "<pre>" + doc.Content + "</pre>"
 		}
+		canonical := absoluteURL(c, "/"+id)
+		c.Response().Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 		return renderPage(c, http.StatusOK, "doc", map[string]interface{}{
-			"Title":       "fastmd/" + id,
-			"Description": "Shared Markdown document on fastmd.",
-			"ID":          id,
-			"HTML":        template.HTML(htmlContent),
+			"Title":              "fastmd/" + id + " | fastmd.dev",
+			"Description":        "Shared Markdown document on fastmd.",
+			"Canonical":          canonical,
+			"Robots":             "noindex, nofollow, noarchive",
+			"OGType":             "article",
+			"OGURL":              canonical,
+			"OGImage":            "https://fastmd.dev/static/og-fastmd.svg",
+			"TwitterCard":        "summary",
+			"TwitterDescription": "Shared Markdown document on fastmd.",
+			"TwitterImage":       "https://fastmd.dev/static/og-fastmd.svg",
+			"ID":                 id,
+			"HTML":               template.HTML(htmlContent),
 		})
 	})
 
