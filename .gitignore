@@ -30,3 +30,13 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local Go installation (not committed to repo)
+.go/
+
+# Build output
+dist/
+
+# Database file
+*.db
+data/
