@@ -59,6 +59,7 @@ function toggleFaq(button) {
 
   const command = "cat report.md | fastmd";
   const result = "🚀 https://fastmd.dev/x7y2";
+  let cursorBlinkTimer = null;
 
   function create(type, text) {
     const line = document.createElement("div");
@@ -68,6 +69,11 @@ function toggleFaq(button) {
   }
 
   function start() {
+    if (cursorBlinkTimer) {
+      clearInterval(cursorBlinkTimer);
+      cursorBlinkTimer = null;
+    }
+
     root.innerHTML = "";
 
     const commandLine = document.createElement("div");
@@ -110,6 +116,14 @@ function toggleFaq(button) {
         waitLine.appendChild(waitPrompt);
         waitLine.appendChild(cursor);
         root.appendChild(waitLine);
+
+        // Blink loop: visible 0.5s, hidden 0.5s.
+        let cursorVisible = true;
+        cursor.style.opacity = "1";
+        cursorBlinkTimer = setInterval(function () {
+          cursorVisible = !cursorVisible;
+          cursor.style.opacity = cursorVisible ? "1" : "0";
+        }, 500);
 
         setTimeout(start, 2400);
       }, 1000);

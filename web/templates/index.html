@@ -1,31 +1,27 @@
 {{define "content"}}
 <section class="hero" id="top">
   <div class="container hero-inner">
-    <a class="hero-pill" href="#install">fastmd.dev · Terminal-native Markdown relay</a>
+    <a class="hero-pill" href="#install">Born for CLI, Built for AI.</a>
 
     <h1 class="hero-title">
-      fastmd.dev ships Markdown
-      <span class="hero-title-gradient">at Linear speed.</span>
+      Terminal. Cloud. AI.
+      <span class="hero-title-gradient">Markdown in milliseconds.</span>
     </h1>
 
     <p class="hero-subtitle">
-      Push from CLI or AI agent, return one short URL, keep context clean.
-      Human-readable HTML and machine-readable Markdown share the same link.
+      Publish from CLI or agent, return one short URL, and keep your context clean.
     </p>
 
     <div class="hero-actions">
-      <a class="btn btn-primary" href="#install">Get Started (Free)</a>
-      <button
-        type="button"
-        class="btn btn-secondary install-copy"
-        data-copy="curl -fsSL https://fastmd.dev/install.sh | sh"
-      >
-        <span class="install-copy-label">Copy install command</span>
+      <div class="install-command-line">
         <code>curl -fsSL https://fastmd.dev/install.sh | sh</code>
+      </div>
+      <button type="button" class="btn btn-primary" data-copy="curl -fsSL https://fastmd.dev/install.sh | sh">
+        Get Started (Free)
       </button>
     </div>
 
-    <p class="token-note">Token 仅在本地存储且经过哈希加密存储在后端</p>
+    <p class="token-note">Token is stored locally only, and only a hashed token is stored on the backend.</p>
 
     <div class="terminal-shell" aria-label="Terminal simulation">
       <div class="terminal-bar">
@@ -41,43 +37,52 @@
 
 <section class="section" id="scenes">
   <div class="container">
-    <p class="section-label">Use Cases &amp; Cases</p>
-    <h2 class="section-title">Built for teams that live in the terminal.</h2>
+    <h2 class="section-title">Use Cases</h2>
 
-    <div class="card-grid four">
-      <article class="card">
-        <h3>AI Agent Delivery</h3>
-        <p>Publish task output via <code>POST /v1/push</code> and return a short URL in chat.</p>
+    <div class="usecase-grid">
+      <article class="usecase-card usecase-feature">
+        <h3>AI External Display</h3>
+        <p>
+          Offload long Agent outputs to a clean web view. Don’t let thousands of lines of audit reports or code
+          analysis clutter your terminal. Pipe the output to fastmd and read it in a beautiful, GitHub-style browser
+          view while you keep typing.
+        </p>
       </article>
-      <article class="card">
-        <h3>CLI Sharing</h3>
-        <p>Run <code>cat report.md | fastmd</code> and share immediately without browser upload flow.</p>
-      </article>
-      <article class="card">
-        <h3>Machine Consumption</h3>
-        <p>Use <code>/:id.md</code> or <code>Accept: text/plain</code> for raw Markdown ingestion.</p>
-      </article>
-      <article class="card">
-        <h3>CI/CD Summaries</h3>
-        <p>Post deploy and test summaries to one URL for PRs, Slack, and runbooks.</p>
-      </article>
-    </div>
 
-    <div class="card-grid three case-grid">
-      <article class="card case">
-        <p class="case-tag">Case 01</p>
-        <h4>Agent report handoff</h4>
-        <p>Analyst agent writes `report.md`, fastmd returns URL, manager reviews HTML instantly.</p>
+      <article class="usecase-card">
+        <h3>Seamless Agent Handoff</h3>
+        <p>
+          Pass pure context between Agents via <code>.md</code> endpoints. Transfer data from a local Agent to a
+          remote LLM without the noise of HTML or the chaos of copy-pasting. Use the raw endpoint to feed
+          high-fidelity, structured context directly into your AI’s brain.
+        </p>
       </article>
-      <article class="card case">
-        <p class="case-tag">Case 02</p>
-        <h4>Incident command center</h4>
-        <p>On-call engineer publishes outage notes in terminal, everyone reads the same source.</p>
+
+      <article class="usecase-card">
+        <h3>Stealth Doc Sharing</h3>
+        <p>
+          Private sharing with hard-coded No-Index. Host sensitive deployment guides or internal READMEs that stay
+          invisible to search engines. Our strict no-index policy ensures your content moves only between you and your
+          intended audience.
+        </p>
       </article>
-      <article class="card case">
-        <p class="case-tag">Case 03</p>
-        <h4>Cross-agent memory relay</h4>
-        <p>One agent writes, another agent fetches `.md` endpoint and continues execution.</p>
+
+      <article class="usecase-card">
+        <h3>CI/CD Debug Snapshots</h3>
+        <p>
+          Pipe failed build logs to an instant URL. When a CI/CD job fails, don’t dig through the console. Use
+          <code>npm test || fastmd</code> to generate a diagnostic link and share formatted logs in Slack or Discord
+          for fast team collaboration.
+        </p>
+      </article>
+
+      <article class="usecase-card">
+        <h3>Remote Prompt Control</h3>
+        <p>
+          One update, global sync for AI instructions. Manage system prompts across multiple VPS nodes or Agent
+          clusters from one URL. Update your Markdown on fastmd and let remote nodes pull the latest logic via
+          <code>fastmd sync</code>.
+        </p>
       </article>
     </div>
   </div>
@@ -85,8 +90,7 @@
 
 <section class="section" id="install">
   <div class="container">
-    <p class="section-label">Usage · Install · API</p>
-    <h2 class="section-title">Everything needed to integrate fastmd.dev.</h2>
+    <h2 class="section-title">Install · API</h2>
 
     <div class="card-grid two docs-grid">
       <article class="card code-card">
@@ -140,55 +144,106 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
   </div>
 </section>
 
-<section class="section" id="help">
+<section class="section" id="why">
   <div class="container">
-    <p class="section-label">Help &amp; FAQ</p>
-    <h2 class="section-title">No separate docs page. Everything is here.</h2>
+    <h2 class="section-title">Why fastmd.dev</h2>
+    <p class="why-closing">Thought to link, command to share. This is fastmd.dev.</p>
 
-    <div class="card-grid two">
-      <article class="card help-card">
-        <h3>Quick Help</h3>
-        <ul>
-          <li>First run auto-creates token at <code>~/.config/fastmd/token</code>.</li>
-          <li>Current payload limit is <strong>1MB</strong> per document.</li>
-          <li>v0.1 stores docs permanently by default.</li>
-        </ul>
-      </article>
-      <article class="card help-card">
-        <h3>Troubleshooting</h3>
-        <ul>
-          <li>Losing token means old docs stay readable but cannot be deleted.</li>
-          <li>Use <code>.md</code> suffix for raw machine read.</li>
-          <li>Check build version with <code>GET /v1/version</code>.</li>
-        </ul>
-      </article>
+    <div class="why-copy">
+      <p>
+        Most text hosting tools like Gist or Pastebin were built for a browser-first era. They ask you to open tabs,
+        handle CAPTCHA checks, click through heavy pages, and wait for heavy UI to load. In fast development and AI
+        audit loops, those extra steps become pure productivity friction.
+      </p>
+      <p>
+        fastmd.dev was created to solve one problem: let Markdown move between terminal, cloud, and AI in milliseconds.
+      </p>
+      <p><strong>Why teams choose fastmd.dev:</strong></p>
+      <ol>
+        <li>
+          <strong>Zero-Friction Identity:</strong> no email and no password. With anonymous <code>fmd_live_</code>
+          tokens, identity is instant and private by default.
+        </li>
+        <li>
+          <strong>CLI-First Experience:</strong> publish with one line, <code>cat report.md | fastmd</code>, and keep
+          your command-line workflow uninterrupted.
+        </li>
+        <li>
+          <strong>AI-Native Dual View:</strong> humans get fast HTML reading, while agents get clean Markdown through
+          <code>.md</code> endpoints for efficient processing.
+        </li>
+        <li>
+          <strong>Privacy by Design:</strong> detail pages are designed for strict indexing isolation so drafts, logs,
+          and prompts stay private to you and your intended audience.
+        </li>
+        <li>
+          <strong>Minimalist Sync:</strong> lightweight source anchors help keep local and cloud states aligned, making
+          fastmd.dev a practical bridge between local thinking and AI collaboration.
+        </li>
+      </ol>
     </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="container">
+    <h2 class="section-title">FAQ</h2>
 
     <div class="faq-list">
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          Why no signup flow?
-          <span>+</span>
+          <span class="faq-question-text">Where is my token stored?</span>
+          <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
-          fastmd.dev is CLI-first: token ownership, no account creation, no dashboard dependency.
+          On first run, fastmd creates a token and stores it at <code>~/.config/fastmd/token</code>.
         </div>
       </article>
 
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          How is token privacy handled?
-          <span>+</span>
+          <span class="faq-question-text">What happens if I lose my token?</span>
+          <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
-          Token 仅在本地存储且经过哈希加密存储在后端。服务端不保存明文 token。
+          Documents remain readable, but deletion is no longer possible without the original token.
         </div>
       </article>
 
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          How do agents get raw markdown?
-          <span>+</span>
+          <span class="faq-question-text">What is the document size limit?</span>
+          <span class="faq-plus">+</span>
+        </button>
+        <div class="faq-answer">
+          The current payload limit is <strong>1MB</strong> per document.
+        </div>
+      </article>
+
+      <article class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this)">
+          <span class="faq-question-text">Do documents expire?</span>
+          <span class="faq-plus">+</span>
+        </button>
+        <div class="faq-answer">
+          In v0.1, documents are stored permanently by default.
+        </div>
+      </article>
+
+      <article class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this)">
+          <span class="faq-question-text">How is token privacy handled?</span>
+          <span class="faq-plus">+</span>
+        </button>
+        <div class="faq-answer">
+          The token is stored locally only, and the backend stores only its hash. Raw token values are never stored.
+        </div>
+      </article>
+
+      <article class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this)">
+          <span class="faq-question-text">How do agents get raw markdown?</span>
+          <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
           Call <code>https://fastmd.dev/{id}.md</code> or use <code>Accept: text/plain</code>.
@@ -197,8 +252,8 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
 
       <article class="faq-item">
         <button type="button" class="faq-question" onclick="toggleFaq(this)">
-          Can I self-host fastmd.dev?
-          <span>+</span>
+          <span class="faq-question-text">Can I self-host fastmd.dev?</span>
+          <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
           Yes. fastmd is open-source (MIT), built as a single Go server with SQLite storage.

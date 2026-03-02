@@ -1,23 +1,13 @@
-# fastmd
+# fastmd.dev
 
-**A Markdown fast-transfer pipeline for AI Agents and developers.**
+Markdown relay for CLI workflows and AI agents.
 
-Push Markdown from your terminal or agent. Get a shareable link in milliseconds. No sign-up required.
+`fastmd` lets you push Markdown from terminal to a short URL in milliseconds. The same document can be consumed by humans as HTML and by machines as raw Markdown.
 
 ```bash
 cat report.md | fastmd
-# → https://fastmd.dev/x7y2
+# -> https://fastmd.dev/x7y2
 ```
-
----
-
-## Why fastmd?
-
-When an AI Agent finishes a task, where does the output go? Pasting it into a chat context bloats the conversation. Uploading to a cloud drive requires authentication. fastmd is the missing piece: a single `curl` call to publish structured Markdown, and a short URL to share it anywhere.
-
-**The same URL works for both humans and machines:**
-- `fastmd.dev/x7y2` → Beautiful HTML page (for humans)
-- `fastmd.dev/x7y2.md` → Raw Markdown (for agents and scripts)
 
 ---
 
@@ -27,30 +17,28 @@ When an AI Agent finishes a task, where does the output go? Pasting it into a ch
 curl -fsSL https://fastmd.dev/install.sh | sh
 ```
 
-Supports macOS (arm64, amd64) and Linux (arm64, amd64).
+Supported platforms:
+- macOS: `arm64`, `amd64`
+- Linux: `arm64`, `amd64`
 
 ---
 
 ## Quick Start
 
-### Push
+### Publish
 
 ```bash
-# From a file
-fastmd push report.md
-
-# From a pipe
+# Pipe mode
 cat report.md | fastmd
-echo "# Quick note" | fastmd
 
-# Output: ✓ Published → https://fastmd.dev/x7y2
+# File mode
+fastmd push report.md
 ```
 
-### Get (pull back to local)
+### Pull raw markdown
 
 ```bash
 fastmd get x7y2
-# Saves to: report.md (extracted from H1 heading)
 ```
 
 ### Delete
@@ -67,49 +55,57 @@ fastmd upgrade
 
 ---
 
+## Core Use Cases
+
+1. **AI External Display**
+Large agent output is published to a clean web view instead of flooding terminal history.
+
+2. **Seamless Agent Handoff**
+Use `/:id.md` to pass structured context between local and remote agents.
+
+3. **Stealth Doc Sharing**
+Share internal docs quickly while keeping distribution controlled.
+
+4. **CI/CD Debug Snapshots**
+Pipe failed build/test logs to a short URL for team debugging.
+
+5. **Remote Prompt Control**
+Host prompt/state markdown centrally and let remote workers pull updates.
+
+---
+
 ## REST API
 
-Built for AI Agent integration. No authentication setup — just include your token in the request body.
-
-### POST /v1/push — Create document
+### `POST /v1/push`
 
 ```bash
 curl -X POST https://fastmd.dev/v1/push \
   -H "Content-Type: application/json" \
-  -d '{
-    "content": "# Agent Report\n\nTask completed successfully.",
-    "token": "fmd_live_xxxx"
-  }'
+  -d '{"content":"# Hello\nWorld","token":"fmd_live_xxxx"}'
+```
 
-# Response
+Response:
+
+```json
 {"id":"x7y2","url":"https://fastmd.dev/x7y2"}
 ```
 
-### GET /:id — View document (HTML)
+### `GET /:id`
 
-```bash
-curl https://fastmd.dev/x7y2
-```
+Human-friendly HTML view.
 
-### GET /:id.md — View document (Raw Markdown)
+### `GET /:id.md`
 
-```bash
-curl https://fastmd.dev/x7y2.md
-```
+Raw Markdown view for agents and scripts.
 
-Also works with `Accept: text/plain` header.
-
-### DELETE /v1/:id — Delete document
+### `DELETE /v1/:id`
 
 ```bash
 curl -X DELETE https://fastmd.dev/v1/x7y2 \
   -H "Authorization: Bearer fmd_live_xxxx"
-
-# Response
-{"ok":true}
 ```
 
-### GET /v1/version — CLI version info
+### `GET /v1/version`
 
 ```bash
 curl https://fastmd.dev/v1/version
@@ -117,118 +113,40 @@ curl https://fastmd.dev/v1/version
 
 ---
 
-## How Tokens Work
+## Token & Privacy Model
 
-On first run, the CLI auto-generates a token (`fmd_live_xxxx`) and saves it to `~/.config/fastmd/token`. No registration, no email — just use it.
-
-The token is **hashed (SHA-256) before storage**. We never store the raw token. It acts as your document ownership proof: only you can delete your documents.
-
-> **Lost your token?** Generate a new one by deleting `~/.config/fastmd/token`. Previously created documents can no longer be deleted, but remain accessible.
-
----
-
-## AI Agent Integration
-
-### Example: LangChain / Python
-
-```python
-import requests
-
-def publish_report(markdown: str, token: str) -> str:
-    resp = requests.post("https://fastmd.dev/v1/push", json={
-        "content": markdown,
-        "token": token,
-    })
-    return resp.json()["url"]
-
-url = publish_report("# Task Complete\n\nAll steps finished.", "fmd_live_xxxx")
-print(f"Report: {url}")
-```
-
-### Example: curl in shell scripts
-
-```bash
-REPORT=$(cat <<'EOF'
-# Daily Summary
-
-- Tasks completed: 12
-- Errors: 0
-EOF
-)
-
-URL=$(curl -s -X POST https://fastmd.dev/v1/push \
-  -H "Content-Type: application/json" \
-  -d "{\"content\": $(echo "$REPORT" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'), \"token\": \"fmd_live_xxxx\"}" \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin)["url"])')
-
-echo "Published: $URL"
-```
+- First run generates token like `fmd_live_xxxx`
+- Token is saved locally at `~/.config/fastmd/token`
+- Server stores only token hash (`SHA-256`), never raw token
+- Token ownership controls delete permission
 
 ---
 
 ## Self-Hosting
 
-fastmd is open source. Run your own instance in minutes.
-
-### Requirements
-- Go 1.22+
-- Any Linux VPS
-
-### Build & Run
-
 ```bash
 git clone https://github.com/wonfull888/fastmd.git
 cd fastmd
-
-# Build server
 make build-server
-
-# Run
 ./dist/fastmd-server --port 8080 --db ./data/fastmd.db
 ```
 
-### With Caddy (recommended)
+Reverse proxy example (Caddy):
 
-```
+```caddy
 fastmd.yourdomain.com {
     reverse_proxy localhost:8080
 }
 ```
 
-### With Nginx
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name fastmd.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-### Point CLI to your instance
-
-```bash
-# Set env var (or edit ~/.config/fastmd/config)
-FASTMD_HOST=https://fastmd.yourdomain.com fastmd push file.md
-```
-
-> Note: `FASTMD_HOST` env var support is on the v0.2 roadmap. For now, rebuild the CLI with a custom `baseURL`.
-
 ---
 
-## Roadmap
+## Release
 
-- [x] v0.1 — Core pipeline: push, view, delete, raw API
-- [ ] v0.2 — TTL options (24h / 7d / 30d), document update, `FASTMD_HOST` env var
-- [ ] v0.3 — Named tokens, document list, webhook notifications
+See [CHANGELOG.md](./CHANGELOG.md) for version history and release notes.
 
 ---
 
 ## License
 
-MIT © 2026 [wonfull888](https://github.com/wonfull888)
+MIT
