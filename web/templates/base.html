@@ -6,10 +6,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <meta name="description" content="{{.Description}}">
-  <meta property="og:title" content="{{.Title}}">
-  <meta property="og:description" content="{{.Description}}">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
+  {{if .Canonical}}<link rel="canonical" href="{{.Canonical}}">{{end}}
+  {{if .Robots}}<meta name="robots" content="{{.Robots}}">{{end}}
+
+  <meta property="og:site_name" content="fastmd.dev">
+  <meta property="og:title" content="{{if .OGTitle}}{{.OGTitle}}{{else}}{{.Title}}{{end}}">
+  <meta property="og:description" content="{{if .OGDescription}}{{.OGDescription}}{{else}}{{.Description}}{{end}}">
+  <meta property="og:type" content="{{if .OGType}}{{.OGType}}{{else}}website{{end}}">
+  {{if .OGURL}}<meta property="og:url" content="{{.OGURL}}">{{end}}
+  {{if .OGImage}}<meta property="og:image" content="{{.OGImage}}">{{end}}
+
+  <meta name="twitter:card" content="{{if .TwitterCard}}{{.TwitterCard}}{{else}}summary_large_image{{end}}">
+  <meta name="twitter:title" content="{{if .TwitterTitle}}{{.TwitterTitle}}{{else}}{{.Title}}{{end}}">
+  <meta name="twitter:description" content="{{if .TwitterDescription}}{{.TwitterDescription}}{{else}}{{.Description}}{{end}}">
+  {{if .TwitterImage}}<meta name="twitter:image" content="{{.TwitterImage}}">{{end}}
+  {{if .JSONLD}}
+  <script type="application/ld+json">{{.JSONLD}}</script>
+  {{end}}
   <link rel="stylesheet" href="/static/style.css">
 </head>
 
