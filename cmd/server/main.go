@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	fastmd "github.com/wonfull888/fastmd"
 	"github.com/wonfull888/fastmd/internal/render"
 	"github.com/wonfull888/fastmd/internal/store"
 )
@@ -19,14 +20,15 @@ import (
 // Version is injected at build time via -ldflags.
 var Version = "dev"
 
-// pageTemplates holds a separate template set per page, avoiding "content" name collision.
+// pageTemplates holds a separate template set per page.
 var pageTemplates map[string]*template.Template
 
 func loadTemplates() error {
 	pages := []string{"index", "doc", "docs", "help", "404"}
 	pageTemplates = make(map[string]*template.Template, len(pages))
 	for _, name := range pages {
-		t, err := template.ParseFiles(
+		t, err := template.ParseFS(
+			fastmd.WebFS,
 			"web/templates/base.html",
 			"web/templates/"+name+".html",
 		)
@@ -59,7 +61,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	// Templates
+	// Templates (from embedded FS)
 	if err := loadTemplates(); err != nil {
 		log.Fatalf("failed to load templates: %v", err)
 	}
@@ -74,12 +76,17 @@ func main() {
 	e.Use(middleware.BodyLimit("1MB"))
 	e.Use(middleware.CORS())
 
-	// Static files
-	e.Static("/static", "web/static")
+	// Static files (from embedded FS)
+	staticFS, err := fs.Sub(fastmd.WebFS, "web/static")
+	if err != nil {
+		log.Fatalf("failed to sub static FS: %v", err)
+	}
+	e.GET("/static/*", echo.WrapHandler(
+		http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))),
+	))
 
 	// ── Routes ──
 
-	// Homepage
 	e.GET("/", func(c echo.Context) error {
 		return renderPage(c, http.StatusOK, "index", map[string]interface{}{
 			"Title":       "fastmd — Markdown pipeline for AI Agents",
@@ -87,7 +94,6 @@ func main() {
 		})
 	})
 
-	// Docs page
 	e.GET("/docs", func(c echo.Context) error {
 		return renderPage(c, http.StatusOK, "docs", map[string]interface{}{
 			"Title":       "API & CLI Reference — fastmd",
@@ -95,7 +101,6 @@ func main() {
 		})
 	})
 
-	// Help page
 	e.GET("/help", func(c echo.Context) error {
 		return renderPage(c, http.StatusOK, "help", map[string]interface{}{
 			"Title":       "Help & FAQ — fastmd",
@@ -103,17 +108,20 @@ func main() {
 		})
 	})
 
-	// install.sh
+	// install.sh — serve embedded file, fallback to disk
 	e.GET("/install.sh", func(c echo.Context) error {
-		b, err := os.ReadFile("install.sh")
+		b, err := fastmd.WebFS.ReadFile("web/install.sh")
 		if err != nil {
-			return c.String(http.StatusNotFound, "install.sh not found")
+			// fallback: try disk
+			b, err = os.ReadFile("install.sh")
+			if err != nil {
+				return c.String(http.StatusNotFound, "install.sh not found")
+			}
 		}
 		c.Response().Header().Set("Content-Type", "text/plain")
 		return c.String(http.StatusOK, string(b))
 	})
 
-	// GET /v1/version
 	e.GET("/v1/version", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
 			"version":     Version,
@@ -121,7 +129,7 @@ func main() {
 		})
 	})
 
-	// POST /v1/push — Create document
+	// POST /v1/push
 	e.POST("/v1/push", func(c echo.Context) error {
 		var req struct {
 			Content string `json:"content"`
@@ -150,16 +158,12 @@ func main() {
 		if c.Request().TLS == nil && c.Request().Header.Get("X-Forwarded-Proto") != "https" {
 			scheme = "http"
 		}
-		host := c.Request().Host
-		url := fmt.Sprintf("%s://%s/%s", scheme, host, id)
+		url := fmt.Sprintf("%s://%s/%s", scheme, c.Request().Host, id)
 
-		return c.JSON(http.StatusOK, map[string]string{
-			"id":  id,
-			"url": url,
-		})
+		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": url})
 	})
 
-	// DELETE /v1/:id — Delete document
+	// DELETE /v1/:id
 	e.DELETE("/v1/:id", func(c echo.Context) error {
 		id := c.Param("id")
 		auth := c.Request().Header.Get("Authorization")
@@ -167,9 +171,7 @@ func main() {
 		if token == "" {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization required"})
 		}
-
-		tokenHash := store.HashToken(token)
-		deleted, err := db.Delete(id, tokenHash)
+		deleted, err := db.Delete(id, store.HashToken(token))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		}
@@ -179,24 +181,15 @@ func main() {
 		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 	})
 
-	// GET /:id or GET /:id.md — View document (dual mode)
+	// GET /:id  (dual mode: HTML or raw)
 	e.GET("/:id", func(c echo.Context) error {
 		id := c.Param("id")
-		rawMode := false
-
-		// Machine mode: .md suffix
-		if strings.HasSuffix(id, ".md") {
-			id = strings.TrimSuffix(id, ".md")
-			rawMode = true
-		}
-		// Machine mode: Accept header
-		if accept := c.Request().Header.Get("Accept"); accept == "text/plain" {
-			rawMode = true
-		}
+		rawMode := strings.HasSuffix(id, ".md") ||
+			c.Request().Header.Get("Accept") == "text/plain"
+		id = strings.TrimSuffix(id, ".md")
 
 		doc, err := db.GetByID(id)
 		if err != nil {
-			log.Printf("getbyid error: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		}
 		if doc == nil {
@@ -204,8 +197,7 @@ func main() {
 				return c.String(http.StatusNotFound, "not found")
 			}
 			return renderPage(c, http.StatusNotFound, "404", map[string]interface{}{
-				"Title":       "Not Found — fastmd",
-				"Description": "Document not found.",
+				"Title": "Not Found — fastmd",
 			})
 		}
 
@@ -214,12 +206,10 @@ func main() {
 			return c.String(http.StatusOK, doc.Content)
 		}
 
-		// Human mode: render Markdown → HTML
 		htmlContent, err := render.ToHTML(doc.Content)
 		if err != nil {
 			htmlContent = "<pre>" + doc.Content + "</pre>"
 		}
-
 		return renderPage(c, http.StatusOK, "doc", map[string]interface{}{
 			"Title":       "fastmd/" + id,
 			"Description": "Shared Markdown document on fastmd.",
