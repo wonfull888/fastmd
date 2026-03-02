@@ -27,6 +27,14 @@ go.work.sum
 # env file
 .env
 
+# Internal planning docs (local only, not for GitHub)
+MVP.md
+TECH_SPEC.md
+TASKS.md
+TEST_CASES.md
+DEPLOY.md
+
+
 # Editor/IDE
 # .idea/
 # .vscode/
