@@ -1,0 +1,14 @@
+{{define "content"}}
+<article class="doc-page">
+    <div class="doc-meta">
+        <span class="doc-id">fastmd.dev/{{.ID}}</span>
+        <div class="doc-actions">
+            <a href="/{{.ID}}.md" class="btn-raw" title="View raw Markdown">Raw</a>
+            <button class="btn-copy-link" onclick="copyLink()" title="Copy link">Copy link</button>
+        </div>
+    </div>
+    <div class="doc-content markdown-body">
+        {{.HTML}}
+    </div>
+</article>
+{{end}}

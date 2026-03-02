@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} — fastmd</title>
+  <meta name="description" content="{{.Description}}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="nav-logo">fastmd</a>
+    <div class="nav-links">
+      <a href="/docs">Docs</a>
+      <a href="/help">Help</a>
+      <a href="https://github.com/wonfull888/fastmd" target="_blank">GitHub</a>
+    </div>
+  </nav>
+  <main>
+    {{template "content" .}}
+  </main>
+  <footer class="footer">
+    <p>fastmd — open source under MIT · <a href="https://github.com/wonfull888/fastmd">GitHub</a></p>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{{define "content"}}
+<section class="hero">
+    <div class="hero-badge">For AI Agents &amp; Developers</div>
+    <h1>Markdown, instantly shared.</h1>
+    <p class="hero-sub">Push Markdown from your terminal or agent. Get a shareable link in milliseconds. No sign-up
+        required.</p>
+
+    <div class="install-box">
+        <code id="install-cmd">curl -fsSL https://fastmd.dev/install.sh | sh</code>
+        <button class="copy-btn" onclick="copyInstall()" title="Copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="demo-box">
+        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">cat report.md | fastmd</span></div>
+        <div class="demo-line output">✓ Published → <a href="#">https://fastmd.dev/x7y2</a></div>
+        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">curl https://fastmd.dev/x7y2.md</span>
+        </div>
+        <div class="demo-line output"># My Report ...</div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>AI Agent Native</h3>
+        <p>Agents push reports via API, share a short link. Consume raw Markdown via <code>.md</code> suffix — no HTML
+            parsing.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Zero Friction</h3>
+        <p>No sign-up, no dashboard. Token auto-generated on first run. Pipe any file in one command.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>Dual Mode URLs</h3>
+        <p>Same link — humans get beautiful HTML, machines get raw Markdown. Works with any HTTP client.</p>
+    </div>
+</section>
+{{end}}

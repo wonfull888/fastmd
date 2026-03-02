@@ -1,0 +1,32 @@
+{{define "content"}}
+<div class="docs-page">
+    <h1>Help &amp; FAQ</h1>
+
+    <h2>What is fastmd?</h2>
+    <p>fastmd is a Markdown fast-transfer pipeline. Push any Markdown content from your terminal or AI agent and get a
+        shareable link instantly — no account required.</p>
+
+    <h2>How do I get my token?</h2>
+    <p>Your token is auto-generated the first time you run any <code>fastmd</code> command. It's saved to
+        <code>~/.config/fastmd/token</code>.</p>
+
+    <h2>I lost my token. Can I recover it?</h2>
+    <p>No — tokens are one-way hashed. If you lose your token, you can no longer delete documents you created. Generate
+        a new token by deleting <code>~/.config/fastmd/token</code> and running any command again.</p>
+
+    <h2>How large can a document be?</h2>
+    <p>Maximum 1MB per document.</p>
+
+    <h2>Do documents expire?</h2>
+    <p>In v0.1, documents are stored permanently by default. TTL options (24h, 7d, 30d) are coming in a future version.
+    </p>
+
+    <h2>How do I read a document as raw Markdown?</h2>
+    <p>Add <code>.md</code> to the URL: <code>https://fastmd.dev/x7y2.md</code></p>
+    <p>Or send an <code>Accept: text/plain</code> header.</p>
+
+    <h2>Can I use this with AI agents?</h2>
+    <p>Yes — that's the primary use case. Call <code>POST /v1/push</code> from your agent with the Markdown content and
+        token. The response gives you a short URL to share.</p>
+</div>
+{{end}}

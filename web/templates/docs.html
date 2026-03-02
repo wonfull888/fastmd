@@ -1,0 +1,53 @@
+{{define "content"}}
+<div class="docs-page">
+    <h1>API &amp; CLI Reference</h1>
+
+    <h2>CLI</h2>
+    <pre><code># Install
+curl -fsSL https://fastmd.dev/install.sh | sh
+
+# Push (pipe)
+cat file.md | fastmd
+
+# Push (file)
+fastmd push file.md
+
+# Get (pull to local)
+fastmd get &lt;ID&gt;
+
+# Delete
+fastmd delete &lt;ID&gt;
+
+# Upgrade
+fastmd upgrade</code></pre>
+
+    <h2>REST API</h2>
+
+    <h3>POST /v1/push — Create document</h3>
+    <pre><code>curl -X POST https://fastmd.dev/v1/push \
+  -H "Content-Type: application/json" \
+  -d '{"content": "# Hello\nWorld", "token": "fmd_live_xxxx"}'
+
+# Response
+{"id":"x7y2","url":"https://fastmd.dev/x7y2"}</code></pre>
+
+    <h3>GET /:id — View document (HTML)</h3>
+    <pre><code>curl https://fastmd.dev/x7y2</code></pre>
+
+    <h3>GET /:id.md — View document (Raw Markdown)</h3>
+    <pre><code>curl https://fastmd.dev/x7y2.md</code></pre>
+
+    <h3>DELETE /v1/:id — Delete document</h3>
+    <pre><code>curl -X DELETE https://fastmd.dev/v1/x7y2 \
+  -H "Authorization: Bearer fmd_live_xxxx"
+
+# Response
+{"ok":true}</code></pre>
+
+    <h3>GET /v1/version — CLI version info</h3>
+    <pre><code>curl https://fastmd.dev/v1/version
+
+# Response
+{"version":"v0.1.0","install_url":"https://fastmd.dev/install.sh"}</code></pre>
+</div>
+{{end}}
