@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
+
 	"log"
 	"net/http"
 	"os"
@@ -19,13 +19,33 @@ import (
 // Version is injected at build time via -ldflags.
 var Version = "dev"
 
-// TemplateRenderer wraps Go's html/template for Echo.
-type TemplateRenderer struct {
-	templates *template.Template
+// pageTemplates holds a separate template set per page, avoiding "content" name collision.
+var pageTemplates map[string]*template.Template
+
+func loadTemplates() error {
+	pages := []string{"index", "doc", "docs", "help", "404"}
+	pageTemplates = make(map[string]*template.Template, len(pages))
+	for _, name := range pages {
+		t, err := template.ParseFiles(
+			"web/templates/base.html",
+			"web/templates/"+name+".html",
+		)
+		if err != nil {
+			return fmt.Errorf("parse template %s: %w", name, err)
+		}
+		pageTemplates[name] = t
+	}
+	return nil
 }
 
-func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
+func renderPage(c echo.Context, status int, page string, data map[string]interface{}) error {
+	tmpl, ok := pageTemplates[page]
+	if !ok {
+		return fmt.Errorf("template not found: %s", page)
+	}
+	c.Response().WriteHeader(status)
+	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
+	return tmpl.ExecuteTemplate(c.Response().Writer, "base.html", data)
 }
 
 func main() {
@@ -39,16 +59,14 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	// Templates (load all HTML files from web/templates/)
-	tmpl, err := template.ParseGlob("web/templates/*.html")
-	if err != nil {
-		log.Fatalf("failed to parse templates: %v", err)
+	// Templates
+	if err := loadTemplates(); err != nil {
+		log.Fatalf("failed to load templates: %v", err)
 	}
 
 	// Echo
 	e := echo.New()
 	e.HideBanner = true
-	e.Renderer = &TemplateRenderer{templates: tmpl}
 
 	// Middleware
 	e.Use(middleware.Logger())
@@ -63,7 +81,7 @@ func main() {
 
 	// Homepage
 	e.GET("/", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "base.html", map[string]interface{}{
+		return renderPage(c, http.StatusOK, "index", map[string]interface{}{
 			"Title":       "fastmd — Markdown pipeline for AI Agents",
 			"Description": "Push Markdown from your terminal, get a shareable link instantly. No sign-up required.",
 		})
@@ -71,7 +89,7 @@ func main() {
 
 	// Docs page
 	e.GET("/docs", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "base.html", map[string]interface{}{
+		return renderPage(c, http.StatusOK, "docs", map[string]interface{}{
 			"Title":       "API & CLI Reference — fastmd",
 			"Description": "Complete API and CLI reference for fastmd.",
 		})
@@ -79,7 +97,7 @@ func main() {
 
 	// Help page
 	e.GET("/help", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "base.html", map[string]interface{}{
+		return renderPage(c, http.StatusOK, "help", map[string]interface{}{
 			"Title":       "Help & FAQ — fastmd",
 			"Description": "Common questions about fastmd.",
 		})
@@ -120,7 +138,7 @@ func main() {
 		}
 
 		tokenHash := store.HashToken(req.Token)
-		ipHash := store.HashToken(c.RealIP()) // hash IP for abuse tracking
+		ipHash := store.HashToken(c.RealIP())
 
 		id, err := db.Create(req.Content, tokenHash, ipHash)
 		if err != nil {
@@ -129,7 +147,7 @@ func main() {
 		}
 
 		scheme := "https"
-		if c.Request().TLS == nil {
+		if c.Request().TLS == nil && c.Request().Header.Get("X-Forwarded-Proto") != "https" {
 			scheme = "http"
 		}
 		host := c.Request().Host
@@ -185,7 +203,7 @@ func main() {
 			if rawMode {
 				return c.String(http.StatusNotFound, "not found")
 			}
-			return c.Render(http.StatusNotFound, "base.html", map[string]interface{}{
+			return renderPage(c, http.StatusNotFound, "404", map[string]interface{}{
 				"Title":       "Not Found — fastmd",
 				"Description": "Document not found.",
 			})
@@ -202,7 +220,7 @@ func main() {
 			htmlContent = "<pre>" + doc.Content + "</pre>"
 		}
 
-		return c.Render(http.StatusOK, "base.html", map[string]interface{}{
+		return renderPage(c, http.StatusOK, "doc", map[string]interface{}{
 			"Title":       "fastmd/" + id,
 			"Description": "Shared Markdown document on fastmd.",
 			"ID":          id,
