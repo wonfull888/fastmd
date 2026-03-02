@@ -1,187 +1,162 @@
-# fastmd 宝塔面板自动部署指南（Webhook）
+# fastmd 宝塔面板部署指南
 
-> 核心流程：本地 push 到 GitHub → GitHub 触发 Webhook → 宝塔执行脚本 → VPS 自动 git pull + 编译 + 重启服务
-
----
-
-## 整体架构
-
-```
-本地开发  →  git push main  →  GitHub Webhook  →  宝塔 Webhook  →  VPS 自动部署
-```
+> 核心流程：push 到 GitHub → GitHub Webhook → 宝塔 Webhook → VPS 自动 git pull + 编译 + 重启
 
 ---
 
-## Step 1：VPS 上克隆仓库
+## 一、VPS 准备工作（仅首次）
 
-SSH 登录 VPS，克隆代码到服务目录：
+SSH 登录 VPS，依次执行：
 
-```bash
-cd /www/wwwroot
-git clone https://github.com/wonfull888/fastmd.git fastmd
-cd fastmd
-```
-
-配置 git 拉取凭据（用 Personal Access Token）：
-
-```bash
-git remote set-url origin https://<TOKEN>@github.com/wonfull888/fastmd.git
-```
-
----
-
-## Step 2：安装 Go（VPS 上）
+### 1.1 安装 Go
 
 ```bash
 wget https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
 source ~/.bashrc
-go version
+go version   # 验证安装成功
 ```
 
----
+### 1.2 克隆仓库
 
-## Step 3：首次手动编译 + 启动
+```bash
+cd /www/wwwroot
+git clone https://github.com/wonfull888/fastmd.git
+cd fastmd
+```
+
+### 1.3 配置 git 拉取凭据（Token 方式）
+
+```bash
+# <TOKEN> 替换为你的 GitHub Personal Access Token
+git remote set-url origin https://<TOKEN>@github.com/wonfull888/fastmd.git
+```
+
+### 1.4 首次编译
 
 ```bash
 cd /www/wwwroot/fastmd
+mkdir -p dist data
 
-# 编译服务端
+export PATH=$PATH:/usr/local/go/bin
 go build -ldflags "-X main.Version=v0.1.0" -o dist/fastmd-server ./cmd/server
 
-# 创建数据目录
-mkdir -p /var/lib/fastmd
-```
-
-配置 Systemd 服务：
-
-```bash
-cat > /etc/systemd/system/fastmd.service << 'EOF'
-[Unit]
-Description=fastmd server
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/var/lib/fastmd
-ExecStart=/www/wwwroot/fastmd/dist/fastmd-server --port 8080 --db /var/lib/fastmd/fastmd.db
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable fastmd
-systemctl start fastmd
+# 验证二进制能运行
+./dist/fastmd-server --version
 ```
 
 ---
 
-## Step 4：编写自动部署脚本
+## 二、宝塔面板添加 Go 项目
 
-在 VPS 上创建部署脚本（宝塔 Webhook 会调用它）：
+宝塔面板左侧菜单 → **项目** → **Go项目** → **添加Go项目**，按下表填写：
+
+| 字段 | 填写内容 |
+|---|---|
+| **项目执行文件** | 点击文件夹图标，选择 `/www/wwwroot/fastmd/dist/fastmd-server` |
+| **项目名称** | `fastmd` |
+| **项目端口** | `8080`（**不要**勾选"放行端口"，端口对外通过 Nginx 反代，不直接暴露） |
+| **执行命令** | `fastmd-server --port 8080 --db /www/wwwroot/fastmd/data/fastmd.db` |
+| **环境变量** | 默认"无"即可 |
+| **运行用户** | `www`（默认） |
+| **开机启动** | ✅ 勾上 |
+| **绑定域名** | `fastmd.dev` |
+
+点击 **确定**，宝塔会自动启动并守护进程（每 120 秒检测一次）。
+
+---
+
+## 三、Nginx 反代配置
+
+宝塔面板 → **网站** → **添加站点** → 域名填 `fastmd.dev` → 创建后：
+
+1. 点击网站名旁边的 **设置**
+2. 选择 **反向代理** → **添加反向代理**：
+   - 代理名称：`fastmd`
+   - 目标 URL：`http://127.0.0.1:8080`
+   - 点击 **保存**
+
+3. 选择 **SSL** → **Let's Encrypt** → 申请证书 → 开启**强制 HTTPS**
+
+---
+
+## 四、自动部署配置
+
+### 4.1 编写部署脚本
+
+在 VPS 上创建：
 
 ```bash
 cat > /www/wwwroot/fastmd/deploy.sh << 'EOF'
 #!/bin/bash
 set -e
+export PATH=$PATH:/usr/local/go/bin
 
-PROJECT_DIR="/www/wwwroot/fastmd"
-cd $PROJECT_DIR
+PROJECT="/www/wwwroot/fastmd"
+cd $PROJECT
 
-echo "[$(date)] Starting deploy..."
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Deploy started"
 
 # 拉取最新代码
 git pull origin main
 
 # 重新编译
-export PATH=$PATH:/usr/local/go/bin
-go build -ldflags "-X main.Version=$(git describe --tags --always)" \
+go build -ldflags "-X main.Version=$(git describe --tags --always 2>/dev/null || echo 'dev')" \
   -o dist/fastmd-server ./cmd/server
 
-# 重启服务
-systemctl restart fastmd
+# 重启：杀掉旧进程，宝塔守护进程会自动在 120 秒内重启
+kill $(cat /tmp/fastmd.pid 2>/dev/null) 2>/dev/null || pkill -f "fastmd-server" || true
 
-echo "[$(date)] Deploy complete!"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Deploy complete"
 EOF
 
 chmod +x /www/wwwroot/fastmd/deploy.sh
 ```
 
-验证脚本本身能手动运行成功：
+手动测试一次确认没问题：
+
 ```bash
 bash /www/wwwroot/fastmd/deploy.sh
 ```
 
----
+### 4.2 宝塔 Webhook 配置
 
-## Step 5：配置宝塔 Webhook
+宝塔面板 → **软件商店** → 确认已安装 **宝塔WebHook** → 打开 → **添加**：
 
-1. 登录宝塔面板 → 左侧菜单找 **软件商店** → 搜索 **宝塔WebHook** → 确认已安装
+- **名称**：`fastmd-deploy`
+- **执行脚本**：
+  ```bash
+  bash /www/wwwroot/fastmd/deploy.sh >> /var/log/fastmd-deploy.log 2>&1
+  ```
 
-2. 打开 **宝塔WebHook** → 点击 **添加**：
-   - **名称**：fastmd-deploy
-   - **脚本**：
-     ```bash
-     bash /www/wwwroot/fastmd/deploy.sh >> /var/log/fastmd-deploy.log 2>&1
-     ```
+保存后，复制生成的 **Webhook URL**（格式如 `http://<VPS_IP>:8888/hook?access_key=xxx&param=fastmd-deploy`）
 
-3. 添加后，复制生成的 **Webhook URL**，格式类似：
-   ```
-   http://<VPS_IP>:8888/hook?access_key=xxxxxxxx&param=fastmd-deploy
-   ```
+### 4.3 GitHub Webhook 配置
 
----
+打开 [github.com/wonfull888/fastmd/settings/hooks](https://github.com/wonfull888/fastmd/settings/hooks) → **Add webhook**：
 
-## Step 6：配置 GitHub Webhook
+| 字段 | 值 |
+|---|---|
+| Payload URL | 粘贴宝塔生成的 Webhook URL |
+| Content type | `application/json` |
+| Which events | Just the **push** event |
+| Active | ✅ |
 
-1. 打开 GitHub 仓库 → **Settings** → **Webhooks** → **Add webhook**
-
-2. 填写：
-   - **Payload URL**：粘贴 Step 5 中宝塔生成的 URL
-   - **Content type**：`application/json`
-   - **Which events**：选 **Just the push event**
-   - **Active**：勾上
-
-3. 点 **Add webhook** 保存
-
-4. 在 GitHub Webhooks 页面，点击刚添加的 webhook → **Recent Deliveries**，确认有绿色 ✓（如果是 ✕ 说明 VPS 端口未开放）
+点击 **Add webhook**，然后查看 **Recent Deliveries** 确认有 ✅。
 
 ---
 
-## Step 7：宝塔配置 Nginx 反代
-
-宝塔面板 → **网站** → **添加站点** → 域名填 `fastmd.dev` → 创建后点击站点 → **配置文件**，在 `server {}` 内添加：
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:8080;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 2m;
-}
-```
-
-申请 SSL：站点 → **SSL** → **Let's Encrypt** → 一键申请并开启强制 HTTPS。
-
----
-
-## 验证自动部署
+## 五、验证完整流程
 
 ```bash
-# 本地随便改一个文件，push 到 main
-git add . && git commit -m "test: trigger deploy" && git push
+# 本地触发一次 push
+git commit --allow-empty -m "test: trigger webhook" && git push
 
-# 等待约 10-20 秒，查看 VPS 上的部署日志
+# VPS 上查看部署日志（等待约 10-20 秒）
 tail -f /var/log/fastmd-deploy.log
 
-# 验证服务版本是否更新
+# 验证 API 是否正常
 curl https://fastmd.dev/v1/version
 ```
 
@@ -189,23 +164,23 @@ curl https://fastmd.dev/v1/version
 
 ## 日常运维
 
-| 操作 | 命令 |
+| 操作 | 方式 |
 |---|---|
-| 查看服务状态 | `systemctl status fastmd` |
-| 查看实时日志 | `journalctl -u fastmd -f` |
+| 查看运行状态 | 宝塔面板 → 项目 → Go项目 → 查看 fastmd 状态 |
+| 手动重启 | 宝塔面板 → Go项目 → fastmd → 重启 |
 | 查看部署日志 | `tail -f /var/log/fastmd-deploy.log` |
-| 手动触发部署 | `bash /www/wwwroot/fastmd/deploy.sh` |
-| 备份数据库 | `cp /var/lib/fastmd/fastmd.db /backup/fastmd-$(date +%Y%m%d).db` |
+| 查看运行日志 | 宝塔面板 → Go项目 → fastmd → 日志 |
+| 备份数据库 | `cp /www/wwwroot/fastmd/data/fastmd.db /backup/fastmd-$(date +%Y%m%d).db` |
 
 ---
 
 ## 常见问题
 
-**Q: GitHub Webhook 发送失败（红色 ✕）？**
-A: 检查宝塔防火墙是否开放了 8888 端口（宝塔默认端口），或改用 80/443 端口的 Nginx 转发。
+**Q: Webhook 收到但 deploy.sh 报错 `go: command not found`**
+A: deploy.sh 开头已加 `export PATH=$PATH:/usr/local/go/bin`，确认 Go 安装在 `/usr/local/go/`。
 
-**Q: deploy.sh 执行成功但服务没更新？**
-A: 检查编译是否出错：`tail -50 /var/log/fastmd-deploy.log`
+**Q: 编译成功但宝塔守护进程没有重启服务**
+A: 宝塔守护进程默认每 120 秒检测一次。可进宝塔面板 → Go项目 → 手动点击"重启"。
 
-**Q: go command not found 报错？**
-A: deploy.sh 中已加 `export PATH=$PATH:/usr/local/go/bin`，确认 Go 安装路径正确。
+**Q: GitHub Webhook 显示红色 ✕**
+A: 宝塔 8888 端口需要在**宝塔安全** → 放行该端口，或在服务器防火墙开放。
