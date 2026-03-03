@@ -23,7 +23,7 @@
   {{if .JSONLD}}
   <script type="application/ld+json">{{.JSONLD}}</script>
   {{end}}
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v={{urlquery .AssetVersion}}">
 </head>
 
 <body>
@@ -56,7 +56,7 @@
   </footer>
 
   <div class="toast" id="toast"></div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v={{urlquery .AssetVersion}}"></script>
 </body>
 
 </html>
