@@ -345,34 +345,22 @@ main {
 .usecase-grid {
   margin-top: 3rem;
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.2rem;
 }
 
 .usecase-card {
-  grid-column: span 6;
   border: 1px solid var(--transparent-white);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.03);
   padding: 2.2rem;
-}
-
-.usecase-feature {
-  grid-column: span 12;
-  background:
-    radial-gradient(ellipse 80% 120% at 15% 0%, rgba(93, 52, 221, 0.13), transparent),
-    rgba(255, 255, 255, 0.04);
-}
-
-.usecase-tag {
-  color: #9d9bf2;
-  font-size: 1.2rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  min-height: 24.8rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .usecase-card h3 {
-  margin-top: 0.8rem;
+  margin-top: 0;
   font-size: 2.2rem;
   letter-spacing: -0.02em;
 }
@@ -380,14 +368,27 @@ main {
 .usecase-card p {
   margin-top: 0.8rem;
   color: var(--primary-text);
-  font-size: 1.55rem;
-  line-height: 1.7;
+  font-size: 1.5rem;
+  line-height: 1.68;
 }
 
 .usecase-card code {
   font-family: var(--font-mono);
   font-size: 1.3rem;
   color: #9d9bf2;
+}
+
+.usecase-card .cli-hint {
+  margin-top: auto;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--transparent-white);
+  font-size: 1.35rem;
+  color: #d5dcf2;
+}
+
+.usecase-card .cli-hint span {
+  color: #aeb7d1;
+  margin-right: 0.6rem;
 }
 
 .docs-grid {
@@ -461,19 +462,37 @@ main {
   margin-top: 1.2rem;
 }
 
-.why-copy ol {
-  margin-top: 1rem;
-  padding-left: 2rem;
+.why-feature-grid {
+  margin-top: 2.4rem;
   display: grid;
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
 }
 
-.why-copy li {
+.why-feature {
+  border: 1px solid var(--transparent-white);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 2rem;
+}
+
+.why-feature h2 {
+  font-size: 2.2rem;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.why-feature p {
+  margin-top: 0.8rem;
   color: var(--primary-text);
+  font-size: 1.5rem;
+  line-height: 1.7;
 }
 
-.why-copy strong {
-  color: var(--off-white);
+.why-feature code {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  color: #9d9bf2;
 }
 
 .why-closing {
@@ -764,8 +783,8 @@ main {
     grid-template-columns: 1fr;
   }
 
-  .usecase-card {
-    grid-column: span 12;
+  .why-feature-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -806,6 +825,10 @@ main {
 
   .card-grid.two,
   .card-grid.four {
+    grid-template-columns: 1fr;
+  }
+
+  .usecase-grid {
     grid-template-columns: 1fr;
   }
 
