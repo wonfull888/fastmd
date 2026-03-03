@@ -40,7 +40,7 @@
     <h2 class="section-title">Use Cases</h2>
 
     <div class="usecase-grid">
-      <article class="usecase-card usecase-feature">
+      <article class="usecase-card">
         <h3>AI External Display</h3>
         <p>
           Offload long Agent outputs to a clean web view. Don’t let thousands of lines of audit reports or code
@@ -83,6 +83,16 @@
           clusters from one URL. Update your Markdown on fastmd and let remote nodes pull the latest logic via
           <code>fastmd sync</code>.
         </p>
+      </article>
+
+      <article class="usecase-card">
+        <h3>Instant Skill Report Sharing</h3>
+        <p>
+          Share insights from AI skills and custom tools. Stop sending messy terminal logs. Pipe complex outputs from
+          your AI skills, like SEO audits or content drafts, directly to fastmd. Deliver a professional, structured
+          web report to your team or clients in milliseconds, with zero indexing and 100% privacy.
+        </p>
+        <p class="cli-hint"><span>CLI Hint:</span> <code>claude-code-skill --audit | fastmd</code></p>
       </article>
     </div>
   </div>
@@ -158,29 +168,25 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
       <p>
         fastmd.dev was created to solve one problem: let Markdown move between terminal, cloud, and AI in milliseconds.
       </p>
-      <p><strong>Why teams choose fastmd.dev:</strong></p>
-      <ol>
-        <li>
-          <strong>Zero-Friction Identity:</strong> no email and no password. With anonymous <code>fmd_live_</code>
-          tokens, identity is instant and private by default.
-        </li>
-        <li>
-          <strong>CLI-First Experience:</strong> publish with one line, <code>cat report.md | fastmd</code>, and keep
-          your command-line workflow uninterrupted.
-        </li>
-        <li>
-          <strong>AI-Native Dual View:</strong> humans get fast HTML reading, while agents get clean Markdown through
-          <code>.md</code> endpoints for efficient processing.
-        </li>
-        <li>
-          <strong>Privacy by Design:</strong> detail pages are designed for strict indexing isolation so drafts, logs,
-          and prompts stay private to you and your intended audience.
-        </li>
-        <li>
-          <strong>Minimalist Sync:</strong> lightweight source anchors help keep local and cloud states aligned, making
-          fastmd.dev a practical bridge between local thinking and AI collaboration.
-        </li>
-      </ol>
+    </div>
+
+    <div class="why-feature-grid">
+      <article class="why-feature">
+        <h2>Minimalist CLI-First Philosophy</h2>
+        <p>Publish in one line and keep your terminal workflow uninterrupted with <code>cat report.md | fastmd</code>.</p>
+      </article>
+      <article class="why-feature">
+        <h2>AI-Native Dual-View (Human &amp; Agent)</h2>
+        <p>Humans get fast HTML reading, while agents consume clean context through <code>.md</code> endpoints.</p>
+      </article>
+      <article class="why-feature">
+        <h2>Hard-coded Privacy &amp; Zero-Indexing</h2>
+        <p>Document pages are isolated with strict no-index directives so your drafts, logs, and prompts stay private.</p>
+      </article>
+      <article class="why-feature">
+        <h2>Frictionless Identity: Token is Everything</h2>
+        <p>Skip email and password flows. Anonymous <code>fmd_live_</code> tokens act as instant identity by default.</p>
+      </article>
     </div>
   </div>
 </section>
