@@ -4,6 +4,38 @@ All notable changes to fastmd are documented in this file.
 
 ---
 
+## [v0.1.2] - 2026-03-03
+
+### Release Summary
+
+v0.1.2 focuses on SEO page-element hardening and homepage information architecture polish.
+
+### Added
+
+- Homepage JSON-LD enhancements aligned with software application positioning.
+- New homepage use case: **Instant Skill Report Sharing**.
+- New release notes document: `RELEASE_v0.1.2.md`.
+
+### Changed
+
+- Homepage metadata rewritten for SEO targeting:
+  - Title tag
+  - Meta description
+  - Open Graph title/description
+  - Twitter title/description
+- Added canonical/robots-aware head rendering support in shared template.
+- Replaced OG preview asset with minimalist terminal-style social image.
+- Refined `Use Cases` section to a symmetric card layout with consistent visual rhythm.
+- Expanded `Why fastmd.dev` section with explicit value pillars.
+- Updated README with v0.1.2 highlights and use-case coverage.
+
+### Security / Indexation
+
+- Enforced `X-Robots-Tag: noindex, nofollow, noarchive` for detail/raw/404 responses.
+- Kept homepage indexable while preserving privacy posture for shared document pages.
+
+---
+
 ## [v0.1.1] - 2026-03-02
 
 ### Release Summary
