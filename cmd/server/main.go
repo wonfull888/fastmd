@@ -133,6 +133,12 @@ func renderPage(c echo.Context, status int, page string, data map[string]interfa
 	if !ok {
 		return fmt.Errorf("template not found: %s", page)
 	}
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	if _, exists := data["AssetVersion"]; !exists {
+		data["AssetVersion"] = Version
+	}
 	c.Response().WriteHeader(status)
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
 	return tmpl.ExecuteTemplate(c.Response().Writer, "base.html", data)
