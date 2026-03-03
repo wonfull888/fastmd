@@ -1,26 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="fastmd.dev Open Graph image">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="fastmd CLI Open Graph card">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0b1220" />
-      <stop offset="100%" stop-color="#1c2a45" />
-    </linearGradient>
-    <linearGradient id="text" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#7dd3fc" />
-      <stop offset="100%" stop-color="#34d399" />
+      <stop offset="0%" stop-color="#0a0c14" />
+      <stop offset="100%" stop-color="#11182a" />
     </linearGradient>
   </defs>
 
   <rect width="1200" height="630" fill="url(#bg)" />
-  <rect x="80" y="90" width="1040" height="450" rx="20" fill="#0f172a" stroke="#334155" />
-
-  <circle cx="130" cy="128" r="8" fill="#ef4444" />
-  <circle cx="156" cy="128" r="8" fill="#f59e0b" />
-  <circle cx="182" cy="128" r="8" fill="#22c55e" />
-  <text x="220" y="133" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="20">zsh · fastmd.dev</text>
-
-  <text x="130" y="250" fill="#e2e8f0" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="34">$ cat report.md | fastmd</text>
-  <text x="130" y="320" fill="#86efac" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="32">🚀 https://fastmd.dev/x7y2</text>
-
-  <text x="130" y="455" fill="url(#text)" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="64" font-weight="700">Born for CLI, Built for AI.</text>
-  <text x="130" y="505" fill="#cbd5e1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="30">Terminal. Cloud. AI. Markdown in milliseconds.</text>
+  <rect x="120" y="165" width="960" height="300" rx="18" fill="#0f1423" stroke="#20263a" />
+  <text x="170" y="330" fill="#f6f7fb" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="54">$ cat report.md | fastmd</text>
+  <text x="170" y="380" fill="#9aa3b7" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="22">fastmd.dev</text>
 </svg>
