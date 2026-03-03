@@ -1,6 +1,6 @@
 # fastmd.dev
 
-Markdown relay for CLI workflows and AI agents.
+Minimalist CLI-first Markdown hosting for developers and AI agents.
 
 `fastmd` lets you push Markdown from terminal to a short URL in milliseconds. The same document can be consumed by humans as HTML and by machines as raw Markdown.
 
@@ -8,6 +8,15 @@ Markdown relay for CLI workflows and AI agents.
 cat report.md | fastmd
 # -> https://fastmd.dev/x7y2
 ```
+
+---
+
+## Latest Update (v0.1.2)
+
+- Refined homepage SEO metadata (title, description, canonical, OG/Twitter cards, JSON-LD)
+- Added stricter indexation controls for document/detail responses
+- Added new use case: **Instant Skill Report Sharing**
+- Rebalanced Use Cases layout to a cleaner symmetric grid
 
 ---
 
@@ -72,6 +81,9 @@ Pipe failed build/test logs to a short URL for team debugging.
 5. **Remote Prompt Control**
 Host prompt/state markdown centrally and let remote workers pull updates.
 
+6. **Instant Skill Report Sharing**
+Pipe AI skill outputs (SEO audits, content drafts, reports) to fastmd and share a clean private link in milliseconds.
+
 ---
 
 ## REST API
@@ -119,6 +131,7 @@ curl https://fastmd.dev/v1/version
 - Token is saved locally at `~/.config/fastmd/token`
 - Server stores only token hash (`SHA-256`), never raw token
 - Token ownership controls delete permission
+- Detail/raw pages return no-index directives for privacy-first sharing
 
 ---
 
@@ -143,7 +156,9 @@ fastmd.yourdomain.com {
 
 ## Release
 
-See [CHANGELOG.md](./CHANGELOG.md) for version history and release notes.
+See:
+- [CHANGELOG.md](./CHANGELOG.md)
+- [RELEASE_v0.1.2.md](./RELEASE_v0.1.2.md)
 
 ---
 
