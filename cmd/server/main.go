@@ -37,7 +37,7 @@ const homeJSONLD = `{
       "url": "https://fastmd.dev",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Linux, macOS, Windows",
-      "description": "Terminal. Cloud. AI. Markdown in milliseconds.",
+      "description": "A minimalist CLI-first Markdown hosting and sync pipe for AI Agents and developers.",
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -193,8 +193,10 @@ func main() {
 	// ── Routes ──
 
 	e.GET("/", func(c echo.Context) error {
-		title := "Born for CLI, Built for AI. | fastmd.dev"
-		description := "Terminal. Cloud. AI. Markdown in milliseconds. Publish from CLI or agents and share instantly with one short link."
+		title := "fastmd.dev | Minimalist CLI-First Markdown Hosting for Developers & AI Agents"
+		description := "Instantly pipe Markdown from terminal to web. fastmd.dev is a minimalist, CLI-first hosting service for developers and AI agents. Anonymous, fast, and no-indexed by default."
+		ogTitle := "fastmd.dev | The Markdown Pipe for CLI & AI"
+		ogDescription := "Share Markdown in milliseconds. No login. AI-native dual view. Hard-coded for privacy."
 		canonical := "https://fastmd.dev/"
 		ogImage := "https://fastmd.dev/static/og-fastmd.svg"
 
@@ -203,14 +205,14 @@ func main() {
 			"Description":        description,
 			"Canonical":          canonical,
 			"Robots":             "index, follow, max-image-preview:large",
-			"OGTitle":            title,
-			"OGDescription":      description,
+			"OGTitle":            ogTitle,
+			"OGDescription":      ogDescription,
 			"OGType":             "website",
 			"OGURL":              canonical,
 			"OGImage":            ogImage,
 			"TwitterCard":        "summary_large_image",
-			"TwitterTitle":       title,
-			"TwitterDescription": description,
+			"TwitterTitle":       ogTitle,
+			"TwitterDescription": ogDescription,
 			"TwitterImage":       ogImage,
 			"JSONLD":             template.JS(homeJSONLD),
 		})
