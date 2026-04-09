@@ -304,6 +304,15 @@ main {
   text-align: center;
 }
 
+.section-intro {
+  width: min(78rem, calc(100% - 2rem));
+  margin: 1.6rem auto 0;
+  text-align: center;
+  color: var(--primary-text);
+  font-size: 1.8rem;
+  line-height: 1.7;
+}
+
 .card-grid {
   margin-top: 3rem;
   display: grid;
@@ -393,6 +402,30 @@ main {
 
 .docs-grid {
   align-items: start;
+}
+
+.ai-grid {
+  align-items: stretch;
+}
+
+.ai-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.ai-card .code-block {
+  margin-top: auto;
+}
+
+.ai-points {
+  margin-top: 0.2rem;
+  padding-left: 1.8rem;
+  color: var(--primary-text);
+}
+
+.ai-points li + li {
+  margin-top: 0.8rem;
 }
 
 .code-card h3 {

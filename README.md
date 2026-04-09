@@ -11,12 +11,11 @@ cat report.md | fastmd
 
 ---
 
-## Latest Update (v0.1.2)
+## Latest Update (v0.2.0)
 
-- Refined homepage SEO metadata (title, description, canonical, OG/Twitter cards, JSON-LD)
-- Added stricter indexation controls for document/detail responses
-- Added new use case: **Instant Skill Report Sharing**
-- Rebalanced Use Cases layout to a cleaner symmetric grid
+- Added homepage `AI Integration` section for agent workflows
+- Added `fastmd` skill usage docs and token lifecycle notes
+- Prepared v0.2 release docs around the Antigravity Skill flow
 
 ---
 
@@ -42,6 +41,22 @@ cat report.md | fastmd
 
 # File mode
 fastmd push report.md
+```
+
+### Agent skill
+
+If you use the `fastmd` skill in an agent environment, the skill name is just `fastmd`.
+
+Expected behavior:
+
+- first run auto-generates a local token like `fmd_live_xxxx`
+- the skill pushes the Markdown report to fastmd.dev
+- the final result is one short URL instead of a huge inline report
+
+Typical flow:
+
+```text
+agent finishes report -> fastmd skill loads token -> push succeeds -> URL returned
 ```
 
 ### Pull raw markdown
@@ -133,6 +148,8 @@ curl https://fastmd.dev/v1/version
 - Token ownership controls delete permission
 - Detail/raw pages return no-index directives for privacy-first sharing
 
+Skill flow follows the same model: first use bootstraps the token locally, and later pushes reuse the same token automatically.
+
 ---
 
 ## Self-Hosting
@@ -158,6 +175,7 @@ fastmd.yourdomain.com {
 
 See:
 - [CHANGELOG.md](./CHANGELOG.md)
+- [RELEASE_v0.2.0.md](./RELEASE_v0.2.0.md)
 - [RELEASE_v0.1.2.md](./RELEASE_v0.1.2.md)
 
 ---

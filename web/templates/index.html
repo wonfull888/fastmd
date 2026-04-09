@@ -98,6 +98,48 @@
   </div>
 </section>
 
+<section class="section" id="ai-integration">
+  <div class="container">
+    <h2 class="section-title">AI Integration</h2>
+    <p class="section-intro">
+      The `fastmd` skill turns long agent output into one short link. First run creates a local token, every push binds
+      ownership through token hash, and the final response stays clean.
+    </p>
+
+    <div class="card-grid two ai-grid">
+      <article class="card ai-card">
+        <h3>What the skill does</h3>
+        <p>
+          Use the skill name <code>fastmd</code> inside your agent workflow. It takes the Markdown report, pushes it to
+          fastmd.dev, then returns a shareable URL instead of dumping the whole document back into chat.
+        </p>
+        <div class="code-block">
+          <div class="code-head">
+            <span>Skill flow</span>
+          </div>
+          <pre><code>Agent finishes report
+-> fastmd skill auto-loads local token
+-> POST /v1/push
+-> returns https://fastmd.dev/xxxx</code></pre>
+        </div>
+      </article>
+
+      <article class="card ai-card">
+        <h3>Why it fits agent workflows</h3>
+        <p>
+          No login screen, no browser handoff, no extra state to manage. The first publish generates a token
+          automatically, later publishes reuse it, and the same token keeps delete ownership simple.
+        </p>
+        <ul class="ai-points">
+          <li>First run auto-generates <code>fmd_live_xxxx</code></li>
+          <li>Push returns one short URL for handoff</li>
+          <li>Humans read HTML, agents can fetch <code>.md</code></li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="install">
   <div class="container">
     <h2 class="section-title">Install · API</h2>

@@ -4,6 +4,25 @@ All notable changes to fastmd are documented in this file.
 
 ---
 
+## [v0.2.0] - 2026-04-09
+
+### Release Summary
+
+v0.2 packages fastmd more clearly for agent workflows by formalizing the `fastmd` skill release and tightening product messaging around AI integration.
+
+### Added
+
+- New homepage `AI Integration` section focused on agent-side publishing flow.
+- README documentation for the `fastmd` skill flow and token bootstrap behavior.
+- New release notes document: `RELEASE_v0.2.0.md`.
+
+### Changed
+
+- Homepage navigation now links directly to the AI integration section.
+- Product docs now describe the `fastmd` skill as the canonical agent integration name.
+
+---
+
 ## [v0.1.2] - 2026-03-03
 
 ### Release Summary
