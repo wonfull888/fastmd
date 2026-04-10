@@ -4,6 +4,24 @@ All notable changes to fastmd are documented in this file.
 
 ---
 
+## [v0.2.1] - 2026-04-10
+
+### Release Summary
+
+v0.2.1 adds a standalone `fastmd` skill that can be installed directly from GitHub and used across Claude Code, OpenCode, and Codex without depending on the CLI.
+
+### Added
+
+- New `skills/fastmd` standalone skill source.
+- New `install-skill.sh` installer for Claude Code, OpenCode, and Codex.
+- README install and quick-start docs for the standalone skill.
+
+### Changed
+
+- Skill and CLI are now documented as separate products with a shared token file.
+
+---
+
 ## [v0.2.0] - 2026-04-09
 
 ### Release Summary

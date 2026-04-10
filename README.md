@@ -11,15 +11,38 @@ cat report.md | fastmd
 
 ---
 
-## Latest Update (v0.2.0)
+## Latest Update (v0.2.1)
 
-- Added homepage `AI Integration` section for agent workflows
-- Added `fastmd` skill usage docs and token lifecycle notes
-- Prepared v0.2 release docs around the Antigravity Skill flow
+- Added a standalone `fastmd` skill that publishes Markdown without depending on the CLI
+- Added multi-client skill installer support for Claude Code, OpenCode, and Codex
+- Added GitHub-visible skill install and quick-start docs
 
 ---
 
 ## Install
+
+### Install fastmd Skill
+
+No Python or CLI dependency required. The skill only needs `sh` and `curl`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wonfull888/fastmd/main/install-skill.sh | sh
+```
+
+Targets installed by default:
+- Claude Code: `~/.claude/skills/fastmd`
+- OpenCode: `~/.config/opencode/skills/fastmd`
+- Codex: `~/.codex/skills/fastmd`
+
+Install only one client:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wonfull888/fastmd/main/install-skill.sh | sh -s -- --claude
+curl -fsSL https://raw.githubusercontent.com/wonfull888/fastmd/main/install-skill.sh | sh -s -- --opencode
+curl -fsSL https://raw.githubusercontent.com/wonfull888/fastmd/main/install-skill.sh | sh -s -- --codex
+```
+
+### Install fastmd CLI
 
 ```bash
 curl -fsSL https://fastmd.dev/install.sh | sh
@@ -50,7 +73,7 @@ If you use the `fastmd` skill in an agent environment, the skill name is just `f
 Expected behavior:
 
 - first run auto-generates a local token like `fmd_live_xxxx`
-- the skill pushes the Markdown report to fastmd.dev
+- the skill pushes the Markdown report to fastmd.dev directly, without requiring CLI installation
 - the final result is one short URL instead of a huge inline report
 
 Typical flow:
@@ -150,6 +173,17 @@ curl https://fastmd.dev/v1/version
 
 Skill flow follows the same model: first use bootstraps the token locally, and later pushes reuse the same token automatically.
 
+Skill and CLI are separate products, but they share the same local token file at `~/.config/fastmd/token`.
+
+---
+
+## Skill Source
+
+- Skill source: [`skills/fastmd`](./skills/fastmd)
+- Installer: [`install-skill.sh`](./install-skill.sh)
+- Main skill entry: [`skills/fastmd/SKILL.md`](./skills/fastmd/SKILL.md)
+- Runtime helper: [`skills/fastmd/scripts/publish.sh`](./skills/fastmd/scripts/publish.sh)
+
 ---
 
 ## Self-Hosting
@@ -175,6 +209,7 @@ fastmd.yourdomain.com {
 
 See:
 - [CHANGELOG.md](./CHANGELOG.md)
+- [RELEASE_v0.2.1.md](./RELEASE_v0.2.1.md)
 - [RELEASE_v0.2.0.md](./RELEASE_v0.2.0.md)
 - [RELEASE_v0.1.2.md](./RELEASE_v0.1.2.md)
 
