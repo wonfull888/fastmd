@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -112,7 +114,7 @@ const homeJSONLD = `{
 }`
 
 func loadTemplates() error {
-	pages := []string{"index", "doc", "404"}
+	pages := []string{"index", "doc", "404", "dashboard"}
 	pageTemplates = make(map[string]*template.Template, len(pages))
 	for _, name := range pages {
 		t, err := template.ParseFS(
@@ -126,6 +128,70 @@ func loadTemplates() error {
 		pageTemplates[name] = t
 	}
 	return nil
+}
+
+type rateClient struct {
+	windowStart time.Time
+	count       int
+}
+
+type ipRateLimiter struct {
+	mu      sync.Mutex
+	limit   int
+	window  time.Duration
+	clients map[string]*rateClient
+}
+
+func newIPRateLimiter(limit int, window time.Duration) *ipRateLimiter {
+	return &ipRateLimiter{
+		limit:   limit,
+		window:  window,
+		clients: make(map[string]*rateClient),
+	}
+}
+
+func (l *ipRateLimiter) allow(ip string) bool {
+	now := time.Now()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for key, client := range l.clients {
+		if now.Sub(client.windowStart) >= l.window {
+			delete(l.clients, key)
+		}
+	}
+
+	client, ok := l.clients[ip]
+	if !ok {
+		l.clients[ip] = &rateClient{windowStart: now, count: 1}
+		return true
+	}
+
+	if now.Sub(client.windowStart) >= l.window {
+		client.windowStart = now
+		client.count = 1
+		return true
+	}
+
+	if client.count >= l.limit {
+		return false
+	}
+
+	client.count++
+	return true
+}
+
+func extractTitle(content, fallback string) string {
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") {
+			title := strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+			if title != "" {
+				return title
+			}
+		}
+	}
+	return fallback
 }
 
 func renderPage(c echo.Context, status int, page string, data map[string]interface{}) error {
@@ -186,6 +252,22 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("1MB"))
 	e.Use(middleware.CORS())
+	rateLimiter := newIPRateLimiter(60, time.Minute)
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			path := c.Request().URL.Path
+			if strings.HasPrefix(path, "/static/") {
+				return next(c)
+			}
+			if !rateLimiter.allow(c.RealIP()) {
+				if strings.HasPrefix(path, "/v1/") {
+					return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "rate limit exceeded"})
+				}
+				return c.String(http.StatusTooManyRequests, "rate limit exceeded")
+			}
+			return next(c)
+		}
+	})
 
 	// Static files (from embedded FS)
 	staticFS, err := fs.Sub(fastmd.WebFS, "web/static")
@@ -237,6 +319,31 @@ func main() {
 		})
 	})
 
+	// GET /v1/docs
+	e.GET("/v1/docs", func(c echo.Context) error {
+		auth := c.Request().Header.Get("Authorization")
+		token := strings.TrimPrefix(auth, "Bearer ")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization required"})
+		}
+
+		docs, err := db.ListByTokenHash(store.HashToken(token))
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		}
+
+		items := make([]map[string]interface{}, 0, len(docs))
+		for _, doc := range docs {
+			items = append(items, map[string]interface{}{
+				"id":         doc.ID,
+				"title":      extractTitle(doc.Content, doc.ID),
+				"created_at": doc.CreatedAt,
+				"url":        absoluteURL(c, "/"+doc.ID),
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"documents": items})
+	})
+
 	// POST /v1/push
 	e.POST("/v1/push", func(c echo.Context) error {
 		var req struct {
@@ -283,6 +390,22 @@ func main() {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "not found or token mismatch"})
 		}
 		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+	})
+
+	e.GET("/dashboard", func(c echo.Context) error {
+		canonical := absoluteURL(c, "/dashboard")
+		return renderPage(c, http.StatusOK, "dashboard", map[string]interface{}{
+			"Title":              "Dashboard | fastmd.dev",
+			"Description":        "Manage documents published with your fastmd token.",
+			"Canonical":          canonical,
+			"Robots":             "noindex, nofollow, noarchive",
+			"OGType":             "website",
+			"OGURL":              canonical,
+			"OGImage":            "https://fastmd.dev/static/og-fastmd.svg",
+			"TwitterCard":        "summary",
+			"TwitterDescription": "Manage documents published with your fastmd token.",
+			"TwitterImage":       "https://fastmd.dev/static/og-fastmd.svg",
+		})
 	})
 
 	// GET /:id  (dual mode: HTML or raw)

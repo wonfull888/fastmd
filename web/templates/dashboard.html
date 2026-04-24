@@ -1,0 +1,41 @@
+{{define "content"}}
+<section class="dashboard-page">
+  <div class="container dashboard-shell">
+    <div class="dashboard-header">
+      <div>
+        <p class="dashboard-kicker">fastmd Dashboard</p>
+        <h1>Manage documents with your token</h1>
+        <p class="dashboard-intro">
+          Paste the same <code>fmd_live_</code> token used by fastmd CLI or the fastmd skill to view and manage your published documents.
+        </p>
+      </div>
+      <a href="/" class="btn-home">← Back to home</a>
+    </div>
+
+    <section class="dashboard-auth card">
+      <label class="dashboard-label" for="dashboard-token">Token</label>
+      <div class="dashboard-auth-row">
+        <input id="dashboard-token" class="dashboard-input" type="password" placeholder="fmd_live_xxxx" autocomplete="off">
+        <button id="dashboard-load" class="btn btn-primary" type="button">Load documents</button>
+      </div>
+      <div class="dashboard-auth-actions">
+        <button id="dashboard-save-token" class="btn-action" type="button">Save token</button>
+        <button id="dashboard-clear-token" class="btn-action" type="button">Clear token</button>
+      </div>
+      <p class="dashboard-note">Token is stored only in your browser localStorage for dashboard convenience.</p>
+    </section>
+
+    <section class="dashboard-list card">
+      <div class="dashboard-list-head">
+        <div>
+          <h2>Your Documents</h2>
+          <p id="dashboard-status">Paste a token to load documents.</p>
+        </div>
+        <button id="dashboard-refresh" class="btn-action" type="button">Refresh</button>
+      </div>
+      <div id="dashboard-empty" class="dashboard-empty">No documents loaded yet.</div>
+      <div id="dashboard-docs" class="dashboard-docs"></div>
+    </section>
+  </div>
+</section>
+{{end}}

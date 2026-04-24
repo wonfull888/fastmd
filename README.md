@@ -11,11 +11,11 @@ cat report.md | fastmd
 
 ---
 
-## Latest Update (v0.2.1)
+## Latest Update (v0.3.0 in progress)
 
-- Added a standalone `fastmd` skill that publishes Markdown without depending on the CLI
-- Added multi-client skill installer support for Claude Code, OpenCode, and Codex
-- Added GitHub-visible skill install and quick-start docs
+- Added 8-character IDs for new documents
+- Added token-authenticated `/v1/docs` API and web Dashboard
+- Added IP rate limiting and dashboard management flow
 
 ---
 
@@ -82,6 +82,14 @@ Typical flow:
 agent finishes report -> fastmd skill loads token -> push succeeds -> URL returned
 ```
 
+### Dashboard
+
+Open `https://fastmd.dev/dashboard`, paste your `fmd_live_` token, and manage every document tied to that token.
+
+- list published docs
+- copy document URLs
+- delete documents from the browser
+
 ### Pull raw markdown
 
 ```bash
@@ -137,7 +145,29 @@ curl -X POST https://fastmd.dev/v1/push \
 Response:
 
 ```json
-{"id":"x7y2","url":"https://fastmd.dev/x7y2"}
+{"id":"Ab3kL9xQ","url":"https://fastmd.dev/Ab3kL9xQ"}
+```
+
+### `GET /v1/docs`
+
+```bash
+curl https://fastmd.dev/v1/docs \
+  -H "Authorization: Bearer fmd_live_xxxx"
+```
+
+Response:
+
+```json
+{
+  "documents": [
+    {
+      "id": "Ab3kL9xQ",
+      "title": "Weekly Report",
+      "created_at": 1710000000,
+      "url": "https://fastmd.dev/Ab3kL9xQ"
+    }
+  ]
+}
 ```
 
 ### `GET /:id`
@@ -151,7 +181,7 @@ Raw Markdown view for agents and scripts.
 ### `DELETE /v1/:id`
 
 ```bash
-curl -X DELETE https://fastmd.dev/v1/x7y2 \
+curl -X DELETE https://fastmd.dev/v1/Ab3kL9xQ \
   -H "Authorization: Bearer fmd_live_xxxx"
 ```
 
@@ -174,6 +204,8 @@ curl https://fastmd.dev/v1/version
 Skill flow follows the same model: first use bootstraps the token locally, and later pushes reuse the same token automatically.
 
 Skill and CLI are separate products, but they share the same local token file at `~/.config/fastmd/token`.
+
+Dashboard uses the same token model. Paste the token in the browser to manage the document list for that identity.
 
 ---
 

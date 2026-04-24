@@ -134,3 +134,165 @@ function toggleFaq(button) {
 
   setTimeout(start, 200);
 })();
+
+(function setupDashboard() {
+  const tokenInput = document.getElementById("dashboard-token");
+  if (!tokenInput) return;
+
+  const loadButton = document.getElementById("dashboard-load");
+  const saveButton = document.getElementById("dashboard-save-token");
+  const clearButton = document.getElementById("dashboard-clear-token");
+  const refreshButton = document.getElementById("dashboard-refresh");
+  const status = document.getElementById("dashboard-status");
+  const empty = document.getElementById("dashboard-empty");
+  const docs = document.getElementById("dashboard-docs");
+  const tokenKey = "fastmd.dashboard.token";
+
+  function formatDate(ts) {
+    const date = new Date(ts * 1000);
+    if (Number.isNaN(date.getTime())) return "Unknown date";
+    return date.toLocaleString();
+  }
+
+  function setStatus(message) {
+    if (status) status.textContent = message;
+  }
+
+  function currentToken() {
+    return (tokenInput.value || "").trim();
+  }
+
+  function renderDocs(items) {
+    docs.innerHTML = "";
+    if (!items.length) {
+      empty.style.display = "block";
+      empty.textContent = "No documents found for this token.";
+      return;
+    }
+
+    empty.style.display = "none";
+    items.forEach(function (doc) {
+      const article = document.createElement("article");
+      article.className = "dashboard-doc";
+
+      const title = doc.title || doc.id;
+      article.innerHTML =
+        '<div class="dashboard-doc-head">' +
+          '<div>' +
+            '<h3 class="dashboard-doc-title"></h3>' +
+            '<div class="dashboard-doc-meta">' +
+              '<span></span>' +
+              '<span></span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="dashboard-doc-actions">' +
+            '<button class="btn-action" type="button">Copy URL</button>' +
+            '<button class="btn-action" type="button">Delete</button>' +
+          '</div>' +
+        '</div>' +
+        '<a class="dashboard-doc-link" target="_blank" rel="noreferrer"></a>';
+
+      article.querySelector(".dashboard-doc-title").textContent = title;
+      article.querySelector(".dashboard-doc-meta span:first-child").textContent = "ID: " + doc.id;
+      article.querySelector(".dashboard-doc-meta span:last-child").textContent = "Created: " + formatDate(doc.created_at);
+
+      const link = article.querySelector(".dashboard-doc-link");
+      link.href = doc.url;
+      link.textContent = doc.url;
+
+      const copyBtn = article.querySelectorAll(".btn-action")[0];
+      const deleteBtn = article.querySelectorAll(".btn-action")[1];
+
+      copyBtn.addEventListener("click", function () {
+        copyText(doc.url, "Link copied");
+      });
+
+      deleteBtn.addEventListener("click", async function () {
+        if (!window.confirm("Delete this document?")) return;
+        try {
+          const response = await fetch("/v1/" + encodeURIComponent(doc.id), {
+            method: "DELETE",
+            headers: {
+              Authorization: "Bearer " + currentToken()
+            }
+          });
+
+          if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || "Delete failed");
+          }
+
+          showToast("Document deleted");
+          loadDocs();
+        } catch (error) {
+          showToast("Delete failed");
+        }
+      });
+
+      docs.appendChild(article);
+    });
+  }
+
+  async function loadDocs() {
+    const token = currentToken();
+    if (!token) {
+      setStatus("Paste a token to load documents.");
+      docs.innerHTML = "";
+      empty.style.display = "block";
+      empty.textContent = "No documents loaded yet.";
+      return;
+    }
+
+    setStatus("Loading documents...");
+    try {
+      const response = await fetch("/v1/docs", {
+        headers: {
+          Authorization: "Bearer " + token
+        }
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(body || "Request failed");
+      }
+
+      const data = await response.json();
+      const items = Array.isArray(data.documents) ? data.documents : [];
+      setStatus(items.length ? "Documents loaded." : "No documents found.");
+      renderDocs(items);
+    } catch (_error) {
+      docs.innerHTML = "";
+      empty.style.display = "block";
+      empty.textContent = "Failed to load documents.";
+      setStatus("Check the token and try again.");
+      showToast("Load failed");
+    }
+  }
+
+  const savedToken = window.localStorage.getItem(tokenKey);
+  if (savedToken) {
+    tokenInput.value = savedToken;
+    loadDocs();
+  }
+
+  loadButton.addEventListener("click", loadDocs);
+  refreshButton.addEventListener("click", loadDocs);
+  saveButton.addEventListener("click", function () {
+    const token = currentToken();
+    if (!token) {
+      showToast("Token is empty");
+      return;
+    }
+    window.localStorage.setItem(tokenKey, token);
+    showToast("Token saved");
+  });
+  clearButton.addEventListener("click", function () {
+    window.localStorage.removeItem(tokenKey);
+    tokenInput.value = "";
+    docs.innerHTML = "";
+    empty.style.display = "block";
+    empty.textContent = "No documents loaded yet.";
+    setStatus("Paste a token to load documents.");
+    showToast("Token cleared");
+  });
+})();

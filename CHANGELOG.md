@@ -4,6 +4,27 @@ All notable changes to fastmd are documented in this file.
 
 ---
 
+## [v0.3.0] - In Progress
+
+### Release Summary
+
+v0.3 adds the first management layer on top of fastmd: longer IDs for new documents, token-authenticated document listing, a web dashboard, and basic IP rate limiting.
+
+### Added
+
+- New 8-character ID generation for newly created documents.
+- New `GET /v1/docs` API for token-authenticated document listing.
+- New `/dashboard` page for token-based document management.
+- New homepage dashboard section and README dashboard docs.
+- New per-IP rate limit of 60 requests per minute.
+
+### Changed
+
+- Dashboard and API now use the existing token model as a lightweight identity layer.
+- Old 4-character document IDs remain readable and deletable.
+
+---
+
 ## [v0.2.1] - 2026-04-10
 
 ### Release Summary

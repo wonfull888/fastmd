@@ -2,6 +2,11 @@
 name: fastmd
 version: "0.2.1"
 description: Publish long Markdown content as a fastmd.dev URL. Use when the user wants a shareable link instead of a large inline Markdown response.
+user-invocable: true
+allowed-tools:
+  - Bash
+  - Read
+  - Write
 ---
 
 # fastmd

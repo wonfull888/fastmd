@@ -21,6 +21,13 @@ type Document struct {
 	ExpiresAt *int64
 }
 
+// DocumentSummary represents the dashboard list view of a document.
+type DocumentSummary struct {
+	ID        string
+	Content   string
+	CreatedAt int64
+}
+
 // Store wraps the SQLite database.
 type Store struct {
 	db *sql.DB
@@ -85,7 +92,7 @@ func (s *Store) GenerateID(length int) (string, error) {
 
 // Create inserts a new document and returns its ID.
 func (s *Store) Create(content, tokenHash, ipHash string) (string, error) {
-	id, err := s.GenerateID(4)
+	id, err := s.GenerateID(8)
 	if err != nil {
 		return "", err
 	}
@@ -94,6 +101,34 @@ func (s *Store) Create(content, tokenHash, ipHash string) (string, error) {
 		id, content, tokenHash, ipHash, time.Now().Unix(),
 	)
 	return id, err
+}
+
+// ListByTokenHash returns all documents owned by the token hash, newest first.
+func (s *Store) ListByTokenHash(tokenHash string) ([]DocumentSummary, error) {
+	rows, err := s.db.Query(
+		`SELECT id, content, created_at
+		 FROM documents
+		 WHERE token_hash = ? AND (expires_at IS NULL OR expires_at > ?)
+		 ORDER BY created_at DESC`,
+		tokenHash, time.Now().Unix(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var docs []DocumentSummary
+	for rows.Next() {
+		var doc DocumentSummary
+		if err := rows.Scan(&doc.ID, &doc.Content, &doc.CreatedAt); err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return docs, nil
 }
 
 // GetByID returns a document by ID, or nil if not found / expired.
