@@ -269,7 +269,12 @@ function toggleFaq(button) {
     }
   }
 
-  const savedToken = window.localStorage.getItem(tokenKey);
+  function getCookieToken() {
+    const match = document.cookie.split(";").map(s => s.trim()).find(s => s.startsWith("fastmd_token="));
+    return match ? decodeURIComponent(match.split("=")[1]) : "";
+  }
+
+  const savedToken = getCookieToken() || window.localStorage.getItem(tokenKey);
   if (savedToken) {
     tokenInput.value = savedToken;
     loadDocs();
@@ -284,10 +289,12 @@ function toggleFaq(button) {
       return;
     }
     window.localStorage.setItem(tokenKey, token);
+    document.cookie = "fastmd_token=" + encodeURIComponent(token) + ";path=/;max-age=" + (60*60*24*365) + ";SameSite=Lax";
     showToast("Token saved");
   });
   clearButton.addEventListener("click", function () {
     window.localStorage.removeItem(tokenKey);
+    document.cookie = "fastmd_token=;path=/;max-age=0";
     tokenInput.value = "";
     docs.innerHTML = "";
     empty.style.display = "block";

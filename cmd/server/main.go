@@ -371,6 +371,16 @@ func main() {
 
 		url := absoluteURL(c, "/"+id)
 
+		// Set token cookie so dashboard can auto-fill it.
+		cookie := new(http.Cookie)
+		cookie.Name = "fastmd_token"
+		cookie.Value = req.Token
+		cookie.Path = "/"
+		cookie.MaxAge = 60 * 60 * 24 * 365 // 1 year
+		cookie.HttpOnly = false             // JS needs to read it
+		cookie.SameSite = http.SameSiteLaxMode
+		c.SetCookie(cookie)
+
 		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": url})
 	})
 
