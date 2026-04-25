@@ -1,6 +1,6 @@
 ---
 name: fastmd
-version: "0.2.1"
+version: "0.3.0"
 description: Publish long Markdown content as a fastmd.dev URL. Use when the user wants a shareable link instead of a large inline Markdown response.
 user-invocable: true
 allowed-tools:
@@ -23,7 +23,7 @@ Publish Markdown to fastmd.dev and return a short URL.
 
 - The user only wants Markdown editing help.
 - The content is short enough to reply inline.
-- The user wants to manage an existing document. This version does not support delete, get, or update.
+- The user wants to manage existing documents via browser. Use https://fastmd.dev/dashboard instead.
 
 ## Input Contract
 
