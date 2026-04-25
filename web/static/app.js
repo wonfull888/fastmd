@@ -136,58 +136,82 @@ function toggleFaq(button) {
 })();
 
 (function setupDashboard() {
-  const tokenInput = document.getElementById("dashboard-token");
-  if (!tokenInput) return;
+  const authSection = document.getElementById("dashboard-auth");
+  if (!authSection) return;
 
-  const loadButton = document.getElementById("dashboard-load");
-  const saveButton = document.getElementById("dashboard-save-token");
-  const clearButton = document.getElementById("dashboard-clear-token");
+  const listSection  = document.getElementById("dashboard-list");
+  const tokenInput   = document.getElementById("dashboard-token");
+  const loadButton   = document.getElementById("dashboard-load");
   const refreshButton = document.getElementById("dashboard-refresh");
-  const status = document.getElementById("dashboard-status");
-  const empty = document.getElementById("dashboard-empty");
-  const docs = document.getElementById("dashboard-docs");
-  const tokenKey = "fastmd.dashboard.token";
+  const switchButton = document.getElementById("dashboard-switch");
+  const statusEl     = document.getElementById("dashboard-status");
+  const emptyEl      = document.getElementById("dashboard-empty");
+  const docsEl       = document.getElementById("dashboard-docs");
+  const cookieName   = "fastmd_token";
+  const cookieMaxAge = 60 * 60 * 24 * 365;
 
+  // ── cookie helpers ──────────────────────────────────────────────
+  function getCookie() {
+    const match = document.cookie.split(";").map(s => s.trim())
+      .find(s => s.startsWith(cookieName + "="));
+    return match ? decodeURIComponent(match.split("=")[1]) : "";
+  }
+
+  function setCookie(token) {
+    document.cookie = cookieName + "=" + encodeURIComponent(token) +
+      ";path=/;max-age=" + cookieMaxAge + ";SameSite=Lax";
+  }
+
+  function clearCookie() {
+    document.cookie = cookieName + "=;path=/;max-age=0";
+  }
+
+  // ── view helpers ─────────────────────────────────────────────────
+  function showAuth() {
+    authSection.style.display = "";
+    listSection.style.display = "none";
+  }
+
+  function showList() {
+    authSection.style.display = "none";
+    listSection.style.display = "";
+  }
+
+  function setStatus(msg) {
+    if (statusEl) statusEl.textContent = msg;
+  }
+
+  // ── active token (from cookie only after first load) ─────────────
+  var activeToken = "";
+
+  // ── render ───────────────────────────────────────────────────────
   function formatDate(ts) {
-    const date = new Date(ts * 1000);
-    if (Number.isNaN(date.getTime())) return "Unknown date";
-    return date.toLocaleString();
-  }
-
-  function setStatus(message) {
-    if (status) status.textContent = message;
-  }
-
-  function currentToken() {
-    return (tokenInput.value || "").trim();
+    const d = new Date(ts * 1000);
+    return Number.isNaN(d.getTime()) ? "Unknown date" : d.toLocaleString();
   }
 
   function renderDocs(items) {
-    docs.innerHTML = "";
+    docsEl.innerHTML = "";
     if (!items.length) {
-      empty.style.display = "block";
-      empty.textContent = "No documents found for this token.";
+      emptyEl.style.display = "block";
       return;
     }
-
-    empty.style.display = "none";
+    emptyEl.style.display = "none";
     items.forEach(function (doc) {
       const article = document.createElement("article");
       article.className = "dashboard-doc";
-
       const title = doc.title || doc.id;
       article.innerHTML =
         '<div class="dashboard-doc-head">' +
           '<div>' +
             '<h3 class="dashboard-doc-title"></h3>' +
             '<div class="dashboard-doc-meta">' +
-              '<span></span>' +
-              '<span></span>' +
+              '<span></span><span></span>' +
             '</div>' +
           '</div>' +
           '<div class="dashboard-doc-actions">' +
             '<button class="btn-action" type="button">Copy URL</button>' +
-            '<button class="btn-action" type="button">Delete</button>' +
+            '<button class="btn-action btn-danger" type="button">Delete</button>' +
           '</div>' +
         '</div>' +
         '<a class="dashboard-doc-link" target="_blank" rel="noreferrer"></a>';
@@ -195,111 +219,98 @@ function toggleFaq(button) {
       article.querySelector(".dashboard-doc-title").textContent = title;
       article.querySelector(".dashboard-doc-meta span:first-child").textContent = "ID: " + doc.id;
       article.querySelector(".dashboard-doc-meta span:last-child").textContent = "Created: " + formatDate(doc.created_at);
-
       const link = article.querySelector(".dashboard-doc-link");
       link.href = doc.url;
       link.textContent = doc.url;
 
-      const copyBtn = article.querySelectorAll(".btn-action")[0];
-      const deleteBtn = article.querySelectorAll(".btn-action")[1];
-
-      copyBtn.addEventListener("click", function () {
+      article.querySelectorAll(".btn-action")[0].addEventListener("click", function () {
         copyText(doc.url, "Link copied");
       });
-
-      deleteBtn.addEventListener("click", async function () {
+      article.querySelectorAll(".btn-action")[1].addEventListener("click", async function () {
         if (!window.confirm("Delete this document?")) return;
         try {
-          const response = await fetch("/v1/" + encodeURIComponent(doc.id), {
+          const res = await fetch("/v1/" + encodeURIComponent(doc.id), {
             method: "DELETE",
-            headers: {
-              Authorization: "Bearer " + currentToken()
-            }
+            headers: { Authorization: "Bearer " + activeToken }
           });
-
-          if (!response.ok) {
-            const body = await response.text();
-            throw new Error(body || "Delete failed");
-          }
-
+          if (!res.ok) throw new Error();
           showToast("Document deleted");
           loadDocs();
-        } catch (error) {
+        } catch (_) {
           showToast("Delete failed");
         }
       });
-
-      docs.appendChild(article);
+      docsEl.appendChild(article);
     });
   }
 
+  // ── load docs ────────────────────────────────────────────────────
   async function loadDocs() {
-    const token = currentToken();
-    if (!token) {
-      setStatus("Paste a token to load documents.");
-      docs.innerHTML = "";
-      empty.style.display = "block";
-      empty.textContent = "No documents loaded yet.";
-      return;
-    }
-
-    setStatus("Loading documents...");
+    setStatus("Loading...");
+    showList();
     try {
-      const response = await fetch("/v1/docs", {
-        headers: {
-          Authorization: "Bearer " + token
-        }
+      const res = await fetch("/v1/docs", {
+        headers: { Authorization: "Bearer " + activeToken }
       });
-
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(body || "Request failed");
-      }
-
-      const data = await response.json();
+      if (!res.ok) throw new Error();
+      const data = await res.json();
       const items = Array.isArray(data.documents) ? data.documents : [];
-      setStatus(items.length ? "Documents loaded." : "No documents found.");
+      setStatus(items.length + " document" + (items.length === 1 ? "" : "s"));
       renderDocs(items);
-    } catch (_error) {
-      docs.innerHTML = "";
-      empty.style.display = "block";
-      empty.textContent = "Failed to load documents.";
-      setStatus("Check the token and try again.");
-      showToast("Load failed");
+    } catch (_) {
+      showToast("Load failed — check your token");
+      showAuth();
     }
   }
 
-  function getCookieToken() {
-    const match = document.cookie.split(";").map(s => s.trim()).find(s => s.startsWith("fastmd_token="));
-    return match ? decodeURIComponent(match.split("=")[1]) : "";
-  }
-
-  const savedToken = getCookieToken() || window.localStorage.getItem(tokenKey);
-  if (savedToken) {
-    tokenInput.value = savedToken;
+  // ── enter dashboard with token ───────────────────────────────────
+  function enterWithToken(token) {
+    activeToken = token;
+    setCookie(token);
     loadDocs();
   }
 
-  loadButton.addEventListener("click", loadDocs);
-  refreshButton.addEventListener("click", loadDocs);
-  saveButton.addEventListener("click", function () {
-    const token = currentToken();
-    if (!token) {
-      showToast("Token is empty");
-      return;
+  // ── bootstrap: check URL param → cookie → show auth ─────────────
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get("token");
+
+  if (urlToken) {
+    // Clean token from URL bar so it's not visible or shareable
+    params.delete("token");
+    const newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+    history.replaceState(null, "", newUrl);
+    enterWithToken(urlToken);
+  } else {
+    const cookieToken = getCookie();
+    if (cookieToken) {
+      activeToken = cookieToken;
+      loadDocs();
+    } else {
+      showAuth();
     }
-    window.localStorage.setItem(tokenKey, token);
-    document.cookie = "fastmd_token=" + encodeURIComponent(token) + ";path=/;max-age=" + (60*60*24*365) + ";SameSite=Lax";
-    showToast("Token saved");
+  }
+
+  // ── events ───────────────────────────────────────────────────────
+  loadButton.addEventListener("click", function () {
+    const t = (tokenInput.value || "").trim();
+    if (!t) { showToast("Token is empty"); return; }
+    enterWithToken(t);
   });
-  clearButton.addEventListener("click", function () {
-    window.localStorage.removeItem(tokenKey);
-    document.cookie = "fastmd_token=;path=/;max-age=0";
+
+  tokenInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") loadButton.click();
+  });
+
+  refreshButton.addEventListener("click", function () {
+    if (activeToken) loadDocs();
+  });
+
+  switchButton.addEventListener("click", function () {
+    clearCookie();
+    activeToken = "";
     tokenInput.value = "";
-    docs.innerHTML = "";
-    empty.style.display = "block";
-    empty.textContent = "No documents loaded yet.";
-    setStatus("Paste a token to load documents.");
-    showToast("Token cleared");
+    docsEl.innerHTML = "";
+    emptyEl.style.display = "none";
+    showAuth();
   });
 })();

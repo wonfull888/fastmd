@@ -165,3 +165,4 @@ if [ -z "$URL" ]; then
 fi
 
 printf '%s\n' "$URL"
+printf 'Dashboard: %s/dashboard?token=%s\n' "$BASE_URL" "$TOKEN" >&2

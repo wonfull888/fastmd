@@ -4,36 +4,42 @@
     <div class="dashboard-header">
       <div>
         <p class="dashboard-kicker">fastmd Dashboard</p>
-        <h1>Manage documents with your token</h1>
-        <p class="dashboard-intro">
-          Paste the same <code>fmd_live_</code> token used by fastmd CLI or the fastmd skill to view and manage your published documents.
-        </p>
+        <h1>Your Documents</h1>
       </div>
-      <a href="/" class="btn-home">← Back to home</a>
+      <div class="dashboard-header-actions">
+        <button id="dashboard-refresh" class="btn-action" type="button">Refresh</button>
+        <button id="dashboard-switch" class="btn-action" type="button">Switch token</button>
+        <a href="/" class="btn-home">← Home</a>
+      </div>
     </div>
 
-    <section class="dashboard-auth card">
-      <label class="dashboard-label" for="dashboard-token">Token</label>
+    <!-- No token state: input + guide -->
+    <section id="dashboard-auth" class="dashboard-auth card" style="display:none">
+      <h2>Enter your token</h2>
+      <p class="dashboard-intro">
+        Paste the <code>fmd_live_</code> token from your local file to view and manage your documents.
+      </p>
       <div class="dashboard-auth-row">
         <input id="dashboard-token" class="dashboard-input" type="password" placeholder="fmd_live_xxxx" autocomplete="off">
-        <button id="dashboard-load" class="btn btn-primary" type="button">Load documents</button>
+        <button id="dashboard-load" class="btn btn-primary" type="button">Open Dashboard</button>
       </div>
-      <div class="dashboard-auth-actions">
-        <button id="dashboard-save-token" class="btn-action" type="button">Save token</button>
-        <button id="dashboard-clear-token" class="btn-action" type="button">Clear token</button>
+      <div class="dashboard-guide">
+        <p class="dashboard-guide-title">Don't have the link? Find your token:</p>
+        <div class="code-block">
+          <div class="code-head">
+            <span>Terminal</span>
+            <button type="button" class="code-copy" onclick="copyCode(this)">Copy</button>
+          </div>
+          <pre><code>cat ~/.config/fastmd/token</code></pre>
+        </div>
+        <p class="dashboard-guide-hint">After your first <code>fastmd</code> publish, the dashboard link is printed in the terminal automatically.</p>
       </div>
-      <p class="dashboard-note">Token is stored only in your browser localStorage for dashboard convenience.</p>
     </section>
 
-    <section class="dashboard-list card">
-      <div class="dashboard-list-head">
-        <div>
-          <h2>Your Documents</h2>
-          <p id="dashboard-status">Paste a token to load documents.</p>
-        </div>
-        <button id="dashboard-refresh" class="btn-action" type="button">Refresh</button>
-      </div>
-      <div id="dashboard-empty" class="dashboard-empty">No documents loaded yet.</div>
+    <!-- Document list -->
+    <section id="dashboard-list" class="dashboard-list card" style="display:none">
+      <p id="dashboard-status"></p>
+      <div id="dashboard-empty" class="dashboard-empty" style="display:none">No documents found for this token.</div>
       <div id="dashboard-docs" class="dashboard-docs"></div>
     </section>
   </div>
