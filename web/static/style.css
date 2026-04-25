@@ -105,6 +105,20 @@ a {
   color: var(--off-white);
 }
 
+.nav-links a.nav-dashboard {
+  color: var(--off-white);
+  border: 1px solid var(--transparent-white);
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 180ms ease;
+}
+
+.nav-links a.nav-dashboard:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
 main {
   padding-top: var(--navigation-height);
 }
