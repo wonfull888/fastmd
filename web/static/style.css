@@ -713,6 +713,11 @@ main {
   line-height: 1.7;
 }
 
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+}
+
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
