@@ -130,6 +130,15 @@ func loadTemplates() error {
 	return nil
 }
 
+// formatCreatedAt converts a Unix timestamp to "2006-01-02 15:04 UTC".
+// Returns "" if ts is 0 (old documents with no recorded creation time).
+func formatCreatedAt(ts int64) string {
+	if ts == 0 {
+		return ""
+	}
+	return time.Unix(ts, 0).UTC().Format("2006-01-02 15:04 UTC")
+}
+
 type rateClient struct {
 	windowStart time.Time
 	count       int
@@ -472,6 +481,7 @@ func main() {
 			"TwitterImage":       "https://fastmd.dev/static/og-fastmd.svg",
 			"ID":                 id,
 			"HTML":               template.HTML(htmlContent),
+			"CreatedAt":          formatCreatedAt(doc.CreatedAt),
 		})
 	})
 
