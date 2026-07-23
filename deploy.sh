@@ -9,14 +9,11 @@ echo "=== fastmd deploy ==="
 
 cd "$APP_DIR"
 
-# Fix git safe directory warning when running as different user
-git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
-
 echo "[1/4] git pull..."
 git pull
 
 echo "[2/4] go build..."
-make build-server
+sudo -u www make build-server
 
 echo "[3/4] stop old process..."
 OLDPID=$(ps aux | grep 'fastmd-server' | grep -v grep | awk '{print $2}')
@@ -29,7 +26,7 @@ else
 fi
 
 echo "[4/4] start new process..."
-nohup "$BINARY" $ARGS > /dev/null 2>&1 &
+sudo -u www nohup "$BINARY" $ARGS > /dev/null 2>&1 &
 NEWPID=$!
 sleep 1
 if kill -0 "$NEWPID" 2>/dev/null; then
