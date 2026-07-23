@@ -561,13 +561,14 @@ func main() {
 				"TwitterTitle":       ogTitle,
 				"TwitterDescription": ogDesc,
 				"TwitterImage":       ogImage,
-				"ID":                 id,
-				"RawContent":         doc.Content,
-				"CreatedAt":          formatCreatedAt(doc.CreatedAt),
-			})
-		}
+		"ID":                 id,
+			"DocTitle":           docTitle,
+			"RawContent":         doc.Content,
+			"CreatedAt":          formatCreatedAt(doc.CreatedAt),
+		})
+	}
 
-		// M-5, M-6: rendered doc page with dynamic OG
+	// M-5, M-6: rendered doc page with dynamic OG
 		htmlContent, err := render.ToHTML(doc.Content)
 		if err != nil {
 			htmlContent = "<pre>" + doc.Content + "</pre>"

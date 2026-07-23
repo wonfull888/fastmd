@@ -3,6 +3,7 @@
     <div class="md-hint-banner">
         <span>💡 To view the rendered page: remove .md from the address bar.</span>
     </div>
+    {{if .DocTitle}}<h1 class="doc-title">{{.DocTitle}}</h1>{{end}}
     <div class="doc-meta">
         <span class="doc-time">{{if .CreatedAt}}{{.CreatedAt}}{{else}}—{{end}}</span>
         <span class="doc-id">fastmd.dev/{{.ID}}.md</span>
