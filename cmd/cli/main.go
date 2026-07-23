@@ -123,7 +123,10 @@ func pushFromReader(r io.Reader) {
 // ── Get ───────────────────────────────────────────────────────────────────
 
 func cmdGet(id string) {
-	resp, err := http.Get(fmt.Sprintf("%s/%s.md", baseURL, id))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s.md", baseURL, id), nil)
+	must(err, "create request")
+	req.Header.Set("Accept", "text/plain")
+	resp, err := http.DefaultClient.Do(req)
 	must(err, "get request")
 	defer resp.Body.Close()
 

@@ -698,6 +698,17 @@ main {
   font-size: 1.3rem;
   padding: 0.5rem 1rem;
   cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-read-aloud {
+  color: #9d9bf2;
+  border-color: rgba(157, 155, 242, 0.3);
+}
+
+.btn-read-aloud:hover {
+  border-color: #9d9bf2;
+  color: #b9b7ff;
 }
 
 .doc-content {
@@ -785,6 +796,28 @@ main {
   padding-left: 1rem;
   color: var(--primary-text);
   margin: 1rem 0;
+}
+
+/* md-hint page */
+.md-hint-banner {
+  border: 1px solid rgba(157, 155, 242, 0.3);
+  border-radius: var(--radius);
+  padding: 1.2rem 1.6rem;
+  margin-bottom: 1.6rem;
+  background: rgba(157, 155, 242, 0.08);
+  color: #b9b7ff;
+  font-size: 1.4rem;
+  line-height: 1.6;
+}
+
+.md-hint-raw {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  line-height: 1.7;
+  color: #dfe4f6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
 }
 
 .markdown-body table {
@@ -966,6 +999,15 @@ main {
 
 .dashboard-doc-title {
   font-size: 1.8rem;
+}
+
+.dashboard-doc-title-link {
+  color: var(--off-white);
+  transition: color 180ms ease;
+}
+
+.dashboard-doc-title-link:hover {
+  color: #9d9bf2;
 }
 
 .dashboard-doc-meta {

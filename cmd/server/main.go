@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -114,7 +115,7 @@ const homeJSONLD = `{
 }`
 
 func loadTemplates() error {
-	pages := []string{"index", "doc", "404", "dashboard"}
+	pages := []string{"index", "doc", "404", "dashboard", "md-hint"}
 	pageTemplates = make(map[string]*template.Template, len(pages))
 	for _, name := range pages {
 		t, err := template.ParseFS(
@@ -201,6 +202,66 @@ func extractTitle(content, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+// Pre-compiled patterns for stripMarkdown.
+var (
+	imgRe  = regexp.MustCompile(`!\[[^\]]*\]\([^)]+\)`)
+	linkRe = regexp.MustCompile(`\[([^\]]*)\]\([^)]+\)`)
+)
+
+// stripMarkdown removes common markdown formatting from a single line.
+func stripMarkdown(line string) string {
+	line = imgRe.ReplaceAllString(line, "")
+	line = linkRe.ReplaceAllString(line, "$1")
+	line = strings.ReplaceAll(line, "**", "")
+	line = strings.ReplaceAll(line, "__", "")
+	line = strings.ReplaceAll(line, "*", "")
+	line = strings.ReplaceAll(line, "_", "")
+	line = strings.ReplaceAll(line, "`", "")
+	line = strings.TrimPrefix(line, "> ")
+	return strings.TrimSpace(line)
+}
+
+// extractDescription returns a plain-text summary of up to maxChars characters
+// from the beginning of markdown content. It strips markdown syntax and extends
+// to the next space so words are never cut in the middle.
+func extractDescription(content string, maxChars int) string {
+	var lines []string
+	inCodeBlock := false
+
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "```") {
+			inCodeBlock = !inCodeBlock
+			continue
+		}
+		if inCodeBlock {
+			continue
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		clean := stripMarkdown(trimmed)
+		if clean != "" {
+			lines = append(lines, clean)
+		}
+	}
+
+	text := strings.Join(lines, " ")
+	text = strings.Join(strings.Fields(text), " ")
+
+	if len(text) <= maxChars {
+		return text
+	}
+
+	truncated := text[:maxChars]
+	if idx := strings.LastIndexByte(truncated, ' '); idx > 0 {
+		truncated = truncated[:idx]
+	}
+	return truncated
 }
 
 func renderPage(c echo.Context, status int, page string, data map[string]interface{}) error {
@@ -347,7 +408,7 @@ func main() {
 				"id":         doc.ID,
 				"title":      extractTitle(doc.Content, doc.ID),
 				"created_at": doc.CreatedAt,
-				"url":        absoluteURL(c, "/"+doc.ID),
+				"url":        absoluteURL(c, "/"+doc.ID+".md"),
 			})
 		}
 		return c.JSON(http.StatusOK, map[string]interface{}{"documents": items})
@@ -378,7 +439,7 @@ func main() {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		}
 
-		url := absoluteURL(c, "/"+id)
+		url := absoluteURL(c, "/"+id+".md")
 
 		// Set token cookie so dashboard can auto-fill it.
 		cookie := new(http.Cookie)
@@ -427,11 +488,13 @@ func main() {
 		})
 	})
 
-	// GET /:id  (dual mode: HTML or raw)
+	// GET /:id  (triple mode: doc HTML / md-hint HTML / raw text)
 	e.GET("/:id", func(c echo.Context) error {
 		idParam := c.Param("id")
-		rawMode := strings.HasSuffix(idParam, ".md") ||
-			c.Request().Header.Get("Accept") == "text/plain"
+		isMdSuffix := strings.HasSuffix(idParam, ".md")
+		acceptPlain := c.Request().Header.Get("Accept") == "text/plain"
+		rawMode := acceptPlain                                       // M-4: Accept: text/plain always returns raw (backward compat)
+		mdHintMode := isMdSuffix && !acceptPlain                      // M-3: .md without text/plain → HTML hint page
 		id := strings.TrimSuffix(idParam, ".md")
 
 		doc, err := db.GetByID(id)
@@ -456,29 +519,74 @@ func main() {
 			})
 		}
 
+		// M-4: raw text/plain — backward compat for agents
 		if rawMode {
 			c.Response().Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 			c.Response().Header().Set("Content-Type", "text/plain; charset=utf-8")
 			return c.String(http.StatusOK, doc.Content)
 		}
 
+		// Compute dynamic OG fields
+		docTitle := extractTitle(doc.Content, "")
+		ogTitle := docTitle
+		if ogTitle == "" {
+			ogTitle = "fastmd/" + id + " | fastmd.dev"
+		}
+		pageTitle := ogTitle
+		if docTitle != "" {
+			pageTitle = docTitle + " | fastmd.dev"
+		}
+		ogDesc := extractDescription(doc.Content, 200)
+		if ogDesc == "" {
+			ogDesc = "Shared Markdown document on fastmd."
+		}
+		canonical := absoluteURL(c, "/"+id)
+		ogImage := "https://fastmd.dev/static/og-fastmd.svg"
+		robots := "noindex, nofollow, noarchive"
+
+		// M-3: .md HTML hint page
+		if mdHintMode {
+			c.Response().Header().Set("X-Robots-Tag", robots)
+			return renderPage(c, http.StatusOK, "md-hint", map[string]interface{}{
+				"Title":              pageTitle,
+				"Description":        ogDesc,
+				"Canonical":          canonical + ".md",
+				"Robots":             robots,
+				"OGTitle":            ogTitle,
+				"OGDescription":      ogDesc,
+				"OGType":             "article",
+				"OGURL":              canonical + ".md",
+				"OGImage":            ogImage,
+				"TwitterCard":        "summary",
+				"TwitterTitle":       ogTitle,
+				"TwitterDescription": ogDesc,
+				"TwitterImage":       ogImage,
+				"ID":                 id,
+				"RawContent":         doc.Content,
+				"CreatedAt":          formatCreatedAt(doc.CreatedAt),
+			})
+		}
+
+		// M-5, M-6: rendered doc page with dynamic OG
 		htmlContent, err := render.ToHTML(doc.Content)
 		if err != nil {
 			htmlContent = "<pre>" + doc.Content + "</pre>"
 		}
-		canonical := absoluteURL(c, "/"+id)
-		c.Response().Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+		c.Response().Header().Set("X-Robots-Tag", robots)
 		return renderPage(c, http.StatusOK, "doc", map[string]interface{}{
-			"Title":              "fastmd/" + id + " | fastmd.dev",
-			"Description":        "Shared Markdown document on fastmd.",
+			"Title":              pageTitle,
+			"Description":        ogDesc,
 			"Canonical":          canonical,
-			"Robots":             "noindex, nofollow, noarchive",
+			"Robots":             robots,
+			"OGTitle":            ogTitle,
+			"OGDescription":      ogDesc,
 			"OGType":             "article",
 			"OGURL":              canonical,
-			"OGImage":            "https://fastmd.dev/static/og-fastmd.svg",
+			"OGImage":            ogImage,
 			"TwitterCard":        "summary",
-			"TwitterDescription": "Shared Markdown document on fastmd.",
-			"TwitterImage":       "https://fastmd.dev/static/og-fastmd.svg",
+			"TwitterTitle":       ogTitle,
+			"TwitterDescription": ogDesc,
+			"TwitterImage":       ogImage,
 			"ID":                 id,
 			"HTML":               template.HTML(htmlContent),
 			"CreatedAt":          formatCreatedAt(doc.CreatedAt),

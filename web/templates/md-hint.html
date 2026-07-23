@@ -1,0 +1,20 @@
+{{define "content"}}
+<article class="doc-page">
+    <div class="md-hint-banner">
+        <span>💡 To view the rendered page: remove .md from the address bar.</span>
+    </div>
+    <div class="doc-meta">
+        <span class="doc-time">{{if .CreatedAt}}{{.CreatedAt}}{{else}}—{{end}}</span>
+        <span class="doc-id">fastmd.dev/{{.ID}}.md</span>
+        <div class="doc-actions">
+            <a href="/{{.ID}}" class="btn-action" title="View rendered page">Rendered</a>
+            <button class="btn-action" onclick="copyLink()" title="Copy link">Copy link</button>
+        </div>
+    </div>
+    <div class="doc-content markdown-body">
+        <pre class="md-hint-raw">{{.RawContent}}</pre>
+    </div>
+</article>
+
+<script type="text/markdown" id="raw-content">{{.RawContent}}</script>
+{{end}}

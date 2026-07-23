@@ -216,7 +216,8 @@ function toggleFaq(button) {
         '</div>' +
         '<a class="dashboard-doc-link" target="_blank" rel="noreferrer"></a>';
 
-      article.querySelector(".dashboard-doc-title").textContent = title;
+      article.querySelector(".dashboard-doc-title").innerHTML =
+        '<a href="' + doc.url + '" class="dashboard-doc-title-link">' + escapeHTML(title) + '</a>';
       article.querySelector(".dashboard-doc-meta span:first-child").textContent = "ID: " + doc.id;
       article.querySelector(".dashboard-doc-meta span:last-child").textContent = "Created: " + formatDate(doc.created_at);
       const link = article.querySelector(".dashboard-doc-link");
@@ -313,4 +314,91 @@ function toggleFaq(button) {
     emptyEl.style.display = "none";
     showAuth();
   });
+})();
+
+// ── escapeHTML helper ──────────────────────────────────────────────
+function escapeHTML(str) {
+  var div = document.createElement("div");
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+// ── Read Aloud (Web Speech API) ─────────────────────────────────────
+(function setupReadAloud() {
+  var btn = document.getElementById("btn-read-aloud");
+  if (!btn || !window.speechSynthesis) return; // silent hide (M-9)
+
+  btn.style.display = "";
+
+  var synth = window.speechSynthesis;
+  var utterance = null;
+  var state = "idle"; // idle | playing | paused
+
+  function getTextContent() {
+    var content = document.querySelector(".doc-content");
+    if (!content) return "";
+
+    // Walk DOM, skip code blocks and pre elements
+    var parts = [];
+    function walk(node) {
+      if (node.nodeType === 3) { // text node
+        var t = node.textContent.trim();
+        if (t) parts.push(t);
+        return;
+      }
+      if (node.nodeType !== 1) return;
+      var tag = node.tagName ? node.tagName.toLowerCase() : "";
+      if (tag === "pre" || tag === "code") return;
+      for (var i = 0; i < node.childNodes.length; i++) {
+        walk(node.childNodes[i]);
+      }
+    }
+    walk(content);
+    return parts.join(". ") + ".";
+  }
+
+  function stop() {
+    if (utterance) {
+      utterance.onend = null;
+      utterance.onerror = null;
+    }
+    synth.cancel();
+    utterance = null;
+    state = "idle";
+    btn.textContent = "Read aloud";
+  }
+
+  function speak(text) {
+    stop();
+    utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.onend = function () {
+      state = "idle";
+      btn.textContent = "Read aloud";
+    };
+    utterance.onerror = function () {
+      state = "idle";
+      btn.textContent = "Read aloud";
+    };
+    synth.speak(utterance);
+    state = "playing";
+    btn.textContent = "Pause";
+  }
+
+  window.toggleReadAloud = function () {
+    if (state === "idle") {
+      speak(getTextContent());
+    } else if (state === "playing") {
+      synth.pause();
+      state = "paused";
+      btn.textContent = "Continue";
+    } else if (state === "paused") {
+      synth.resume();
+      state = "playing";
+      btn.textContent = "Pause";
+    }
+  };
+
+  // Stop on page unload
+  window.addEventListener("beforeunload", stop);
 })();
