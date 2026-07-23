@@ -8,6 +8,10 @@ ARGS="--port 9000 --db ${APP_DIR}/data/fastmd.db"
 echo "=== fastmd deploy ==="
 
 cd "$APP_DIR"
+
+# Fix git safe directory warning when running as different user
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+
 echo "[1/4] git pull..."
 git pull
 
