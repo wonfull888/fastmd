@@ -5,6 +5,8 @@ APP_DIR="/www/wwwroot/fastmd"
 BINARY="${APP_DIR}/dist/fastmd-server"
 ARGS="--port 9000 --db ${APP_DIR}/data/fastmd.db"
 
+export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
+
 echo "=== fastmd deploy ==="
 
 cd "$APP_DIR"
@@ -13,7 +15,7 @@ echo "[1/4] git pull..."
 git pull
 
 echo "[2/4] go build..."
-sudo -u www make build-server
+make build-server
 
 echo "[3/4] stop old process..."
 OLDPID=$(ps aux | grep 'fastmd-server' | grep -v grep | awk '{print $2}')
@@ -26,7 +28,7 @@ else
 fi
 
 echo "[4/4] start new process..."
-sudo -u www nohup "$BINARY" $ARGS > /dev/null 2>&1 &
+nohup "$BINARY" $ARGS > /dev/null 2>&1 &
 NEWPID=$!
 sleep 1
 if kill -0 "$NEWPID" 2>/dev/null; then
