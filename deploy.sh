@@ -1,28 +1,37 @@
 #!/bin/bash
 set -e
 
-PROJECT="/www/wwwroot/fastmd"
-cd $PROJECT
+APP_DIR="/www/wwwroot/fastmd"
+BINARY="${APP_DIR}/dist/fastmd-server"
+ARGS="--port 9000 --db ${APP_DIR}/data/fastmd.db"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Deploy started"
+echo "=== fastmd deploy ==="
 
-# 拉取最新代码
-git pull origin main
+cd "$APP_DIR"
+echo "[1/4] git pull..."
+git pull
 
-# 找到 Go 可执行文件路径（宝塔安装的位置）
-GO_BIN=$(which go 2>/dev/null || echo "/usr/local/go/bin/go")
-export PATH=$(dirname $GO_BIN):$PATH
+echo "[2/4] go build..."
+make build-server
 
-# 创建输出目录
-mkdir -p dist data
+echo "[3/4] stop old process..."
+OLDPID=$(ps aux | grep 'fastmd-server' | grep -v grep | awk '{print $2}')
+if [ -n "$OLDPID" ]; then
+    kill "$OLDPID"
+    sleep 1
+    echo "  killed PID $OLDPID"
+else
+    echo "  no running process"
+fi
 
-# 编译服务端
-$GO_BIN build \
-  -ldflags "-X main.Version=$(git describe --tags --always 2>/dev/null || echo 'dev')" \
-  -o dist/fastmd-server \
-  ./cmd/server
-
-# 停止旧进程（宝塔守护进程会自动重启）
-pkill -f "fastmd-server" || true
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Deploy complete. Binary: dist/fastmd-server"
+echo "[4/4] start new process..."
+nohup "$BINARY" $ARGS > /dev/null 2>&1 &
+NEWPID=$!
+sleep 1
+if kill -0 "$NEWPID" 2>/dev/null; then
+    echo "  started PID $NEWPID"
+    echo "=== deploy OK ==="
+else
+    echo "  ERROR: process failed to start"
+    exit 1
+fi
