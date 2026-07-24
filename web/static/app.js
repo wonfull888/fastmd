@@ -43,6 +43,13 @@ function copyLink() {
   copyText(window.location.href, "Link copied");
 }
 
+function copyFullText() {
+  var el = document.querySelector(".markdown-body");
+  if (el) {
+    copyText(el.innerText || el.textContent, "Full text copied");
+  }
+}
+
 function toggleFaq(button) {
   const item = button.closest(".faq-item");
   if (!item) return;
