@@ -2,16 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -19,6 +22,24 @@ import (
 var Version = "dev"
 
 var baseURL = "https://fastmd.dev"
+
+var httpClient = newHTTPClient()
+
+// Some networks accept IPv6 TCP connections but stall during TLS. Prefer IPv4
+// before sending any HTTP request, while retaining IPv6-only connectivity.
+func newHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		if network == "tcp" {
+			if conn, err := dialer.DialContext(ctx, "tcp4", address); err == nil {
+				return conn, nil
+			}
+		}
+		return dialer.DialContext(ctx, network, address)
+	}
+	return &http.Client{Transport: transport, Timeout: 30 * time.Second}
+}
 
 const (
 	configDir = ".config/fastmd"
@@ -119,7 +140,7 @@ func pushFromReader(r io.Reader) {
 		"token":   token,
 	})
 
-	resp, err := http.Post(baseURL+"/v1/push", "application/json", bytes.NewReader(body))
+	resp, err := httpClient.Post(baseURL+"/v1/push", "application/json", bytes.NewReader(body))
 	must(err, "push request")
 	defer resp.Body.Close()
 
@@ -156,7 +177,7 @@ func cmdUpdate(id string, r io.Reader) {
 	must(err, "create update request")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(data)))
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	must(err, "update request")
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -179,7 +200,7 @@ func cmdGet(id string) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s.md", baseURL, id), nil)
 	must(err, "create request")
 	req.Header.Set("Accept", "text/plain")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	must(err, "get request")
 	defer resp.Body.Close()
 
@@ -212,7 +233,7 @@ func cmdDelete(id string) {
 	must(err, "create request")
 	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	must(err, "delete request")
 	defer resp.Body.Close()
 
