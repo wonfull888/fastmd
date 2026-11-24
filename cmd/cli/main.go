@@ -18,14 +18,18 @@ import (
 // Version is injected at build time.
 var Version = "dev"
 
+var baseURL = "https://fastmd.dev"
+
 const (
-	baseURL    = "https://fastmd.dev"
-	configDir  = ".config/fastmd"
-	tokenFile  = "token"
-	tokenPfx   = "fmd_live_"
+	configDir = ".config/fastmd"
+	tokenFile = "token"
+	tokenPfx  = "fmd_live_"
 )
 
 func main() {
+	if endpoint := os.Getenv("FASTMD_BASE_URL"); endpoint != "" {
+		baseURL = strings.TrimRight(endpoint, "/")
+	}
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `fastmd %s — Markdown pipeline for AI Agents & developers
 
@@ -33,6 +37,7 @@ Usage:
   cat file.md | fastmd          Push via pipe
   fastmd push <file>            Push a file
   fastmd get <ID>               Pull document to local file
+  fastmd update <ID> <file>     Replace a document, keeping its URL
   fastmd delete <ID>            Delete a document
   fastmd upgrade                Upgrade to latest version
   fastmd --version              Print version
@@ -67,6 +72,17 @@ Usage:
 			die("Usage: fastmd get <ID>")
 		}
 		cmdGet(os.Args[2])
+	case "update":
+		if len(os.Args) != 4 {
+			die("Usage: fastmd update <ID> <file>")
+		}
+		if !regexp.MustCompile(`^[A-Za-z0-9]+$`).MatchString(os.Args[2]) {
+			die("Error: use the document ID, without URL or .md suffix")
+		}
+		f, err := os.Open(os.Args[3])
+		must(err, "open file")
+		defer f.Close()
+		cmdUpdate(os.Args[2], f)
 	case "delete":
 		if len(os.Args) < 3 {
 			die("Usage: fastmd delete <ID>")
@@ -118,6 +134,43 @@ func pushFromReader(r io.Reader) {
 	}
 	must(json.NewDecoder(resp.Body).Decode(&result), "decode response")
 	fmt.Printf("✓  Published → %s\n", result.URL)
+}
+
+// ── Update ────────────────────────────────────────────────────────────────
+
+func cmdUpdate(id string, r io.Reader) {
+	content, err := io.ReadAll(r)
+	must(err, "read input")
+	if strings.TrimSpace(string(content)) == "" {
+		die("Error: content is empty")
+	}
+	home, err := os.UserHomeDir()
+	must(err, "get home dir")
+	data, err := os.ReadFile(filepath.Join(home, configDir, tokenFile))
+	if err != nil || strings.TrimSpace(string(data)) == "" {
+		die("Error: updating requires the original token at ~/%s/%s; no new token was generated", configDir, tokenFile)
+	}
+	body, err := json.Marshal(map[string]string{"content": string(content)})
+	must(err, "encode update")
+	req, err := http.NewRequest(http.MethodPut, baseURL+"/v1/"+id, bytes.NewReader(body))
+	must(err, "create update request")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(data)))
+	resp, err := http.DefaultClient.Do(req)
+	must(err, "update request")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		die("Error: server returned %d: %s", resp.StatusCode, string(b))
+	}
+	var result struct {
+		URL string `json:"url"`
+	}
+	must(json.NewDecoder(resp.Body).Decode(&result), "decode response")
+	if result.URL == "" {
+		die("Error: server response did not include a URL")
+	}
+	fmt.Printf("✓  Updated → %s\n", result.URL)
 }
 
 // ── Get ───────────────────────────────────────────────────────────────────

@@ -150,6 +150,21 @@ func (s *Store) GetByID(id string) (*Document, error) {
 	return &doc, nil
 }
 
+// Update replaces an active document's content only when its owner token matches.
+// The ID, creation time, ownership and expiry remain unchanged.
+func (s *Store) Update(id, content, tokenHash string) (bool, error) {
+	res, err := s.db.Exec(
+		`UPDATE documents SET content = ?
+		 WHERE id = ? AND token_hash = ? AND (expires_at IS NULL OR expires_at > ?)`,
+		content, id, tokenHash, time.Now().Unix(),
+	)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
 // Delete removes a document if the tokenHash matches.
 // Returns true if a row was deleted, false if not found or token mismatch.
 func (s *Store) Delete(id, tokenHash string) (bool, error) {

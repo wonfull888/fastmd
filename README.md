@@ -96,6 +96,23 @@ Open `https://fastmd.dev/dashboard`, paste your `fmd_live_` token, and manage ev
 fastmd get x7y2
 ```
 
+### Update an existing document
+
+```bash
+fastmd update x7y2 report.md
+```
+
+Replaces the complete Markdown while keeping the document ID, URL and creation time.
+The original publishing token must still be present at `~/.config/fastmd/token`.
+Empty content and unauthorized updates are rejected. There is no version history;
+the last successful update wins.
+
+The agent skill supports the same operation without installing the CLI:
+
+```bash
+sh scripts/publish.sh --update x7y2 --file report.md
+```
+
 ### Delete
 
 ```bash
@@ -173,6 +190,21 @@ Response:
 ### `GET /:id`
 
 Human-friendly HTML view.
+
+### `PUT /v1/:id`
+
+Replace an existing document using its original token:
+
+```bash
+curl -X PUT https://fastmd.dev/v1/Ab3kL9xQ \
+  -H "Authorization: Bearer fmd_live_xxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"# Updated\nNew content"}'
+```
+
+Returns `{"id":"Ab3kL9xQ","url":"https://fastmd.dev/Ab3kL9xQ.md"}`.
+Missing or malformed authorization returns 401; empty or invalid content returns 400;
+missing, expired or unauthorized documents return 403 without changing or creating a document.
 
 ### `GET /:id.md`
 

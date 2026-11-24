@@ -308,9 +308,18 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
+	e, err := newServer(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("fastmd %s starting on :%s", Version, *port)
+	e.Logger.Fatal(e.Start(":" + *port))
+}
+
+func newServer(db *store.Store) (*echo.Echo, error) {
 	// Templates (from embedded FS)
 	if err := loadTemplates(); err != nil {
-		log.Fatalf("failed to load templates: %v", err)
+		return nil, fmt.Errorf("failed to load templates: %w", err)
 	}
 
 	// Echo
@@ -342,7 +351,7 @@ func main() {
 	// Static files (from embedded FS)
 	staticFS, err := fs.Sub(fastmd.WebFS, "web/static")
 	if err != nil {
-		log.Fatalf("failed to sub static FS: %v", err)
+		return nil, fmt.Errorf("failed to sub static FS: %w", err)
 	}
 	e.GET("/static/*", echo.WrapHandler(
 		http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))),
@@ -447,11 +456,38 @@ func main() {
 		cookie.Value = req.Token
 		cookie.Path = "/"
 		cookie.MaxAge = 60 * 60 * 24 * 365 // 1 year
-		cookie.HttpOnly = false             // JS needs to read it
+		cookie.HttpOnly = false            // JS needs to read it
 		cookie.SameSite = http.SameSiteLaxMode
 		c.SetCookie(cookie)
 
 		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": url})
+	})
+
+	// PUT /v1/:id: replace content while preserving the document's public URL.
+	e.PUT("/v1/:id", func(c echo.Context) error {
+		token, ok := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
+		if !ok || strings.TrimSpace(token) == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization required"})
+		}
+		var req struct {
+			Content string `json:"content"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		}
+		if strings.TrimSpace(req.Content) == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "content is empty"})
+		}
+		id := c.Param("id")
+		updated, err := db.Update(id, req.Content, store.HashToken(token))
+		if err != nil {
+			log.Printf("update error: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		}
+		if !updated {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "document not found, expired, or token mismatch"})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": absoluteURL(c, "/"+id+".md")})
 	})
 
 	// DELETE /v1/:id
@@ -490,11 +526,12 @@ func main() {
 
 	// GET /:id  (triple mode: doc HTML / md-hint HTML / raw text)
 	e.GET("/:id", func(c echo.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-cache")
 		idParam := c.Param("id")
 		isMdSuffix := strings.HasSuffix(idParam, ".md")
 		acceptPlain := c.Request().Header.Get("Accept") == "text/plain"
-		rawMode := acceptPlain                                       // M-4: Accept: text/plain always returns raw (backward compat)
-		mdHintMode := isMdSuffix && !acceptPlain                      // M-3: .md without text/plain → HTML hint page
+		rawMode := acceptPlain                   // M-4: Accept: text/plain always returns raw (backward compat)
+		mdHintMode := isMdSuffix && !acceptPlain // M-3: .md without text/plain → HTML hint page
 		id := strings.TrimSuffix(idParam, ".md")
 
 		doc, err := db.GetByID(id)
@@ -561,14 +598,14 @@ func main() {
 				"TwitterTitle":       ogTitle,
 				"TwitterDescription": ogDesc,
 				"TwitterImage":       ogImage,
-		"ID":                 id,
-			"DocTitle":           docTitle,
-			"RawContent":         doc.Content,
-			"CreatedAt":          formatCreatedAt(doc.CreatedAt),
-		})
-	}
+				"ID":                 id,
+				"DocTitle":           docTitle,
+				"RawContent":         doc.Content,
+				"CreatedAt":          formatCreatedAt(doc.CreatedAt),
+			})
+		}
 
-	// M-5, M-6: rendered doc page with dynamic OG
+		// M-5, M-6: rendered doc page with dynamic OG
 		htmlContent, err := render.ToHTML(doc.Content)
 		if err != nil {
 			htmlContent = "<pre>" + doc.Content + "</pre>"
@@ -594,6 +631,5 @@ func main() {
 		})
 	})
 
-	log.Printf("fastmd %s starting on :%s", Version, *port)
-	e.Logger.Fatal(e.Start(":" + *port))
+	return e, nil
 }

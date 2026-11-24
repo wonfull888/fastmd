@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 
 BASE_URL="${FASTMD_BASE_URL:-https://fastmd.dev}"
 TOKEN_PREFIX="fmd_live_"
@@ -16,9 +17,10 @@ trap cleanup EXIT INT TERM
 
 usage() {
   cat <<'EOF'
-Usage: publish.sh [--file path]
+Usage: publish.sh [--file path] [--update ID]
 
-Publish Markdown to fastmd.dev and print the URL.
+Publish Markdown, or replace an existing document using its original token.
+Prints the document URL; --update preserves the existing URL.
 EOF
 }
 
@@ -32,18 +34,16 @@ random_token() {
 }
 
 json_escape_file() {
-  awk 'BEGIN { first = 1 }
-  {
-    gsub(/\\/, "\\\\")
-    gsub(/\"/, "\\\"")
-    gsub(/\t/, "\\t")
-    gsub(/\r/, "\\r")
-    if (!first) {
-      printf "\\n"
+  # Escape bytes so backslashes, control characters and trailing newlines survive.
+  od -An -v -tu1 "$1" | LC_ALL=C awk '{
+    for (i = 1; i <= NF; i++) {
+      n = $i + 0
+      if (n == 34) printf "\\\""
+      else if (n == 92) printf "\\\\"
+      else if (n < 32) printf "\\u%04x", n
+      else printf "%c", n
     }
-    printf "%s", $0
-    first = 0
-  }' "$1"
+  }'
 }
 
 load_or_create_token() {
@@ -53,6 +53,11 @@ load_or_create_token() {
       printf '%s\n' "$token"
       return
     fi
+  fi
+
+  if [ -n "$UPDATE_ID" ]; then
+    echo "Error: updating requires the original token at $TOKEN_PATH; no new token was generated" >&2
+    return 1
   fi
 
   token="${TOKEN_PREFIX}$(random_token)"
@@ -90,6 +95,7 @@ extract_body() {
 }
 
 FILE_PATH=""
+UPDATE_ID=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -97,6 +103,17 @@ while [ $# -gt 0 ]; do
       shift
       [ $# -gt 0 ] || { echo "Error: --file requires a path" >&2; exit 1; }
       FILE_PATH="$1"
+      ;;
+    --update)
+      shift
+      [ $# -gt 0 ] || { echo "Error: --update requires a document ID" >&2; exit 1; }
+      UPDATE_ID="$1"
+      case "$UPDATE_ID" in
+        ''|*[!a-zA-Z0-9]*)
+          echo "Error: use the document ID, without URL or .md suffix" >&2
+          exit 1
+          ;;
+      esac
       ;;
     -h|--help)
       usage
@@ -136,7 +153,18 @@ TMP_FILES="$TMP_FILES $PAYLOAD_FILE"
 escaped_content=$(json_escape_file "$CONTENT_FILE")
 printf '{"content":"%s","token":"%s"}\n' "$escaped_content" "$TOKEN" > "$PAYLOAD_FILE"
 
-if ! curl -sS -X POST "$BASE_URL/v1/push" -H "Content-Type: application/json" --data-binary "@$PAYLOAD_FILE" -w '\n__FASTMD_STATUS__:%{http_code}\n' > "$RESPONSE_FILE"; then
+if [ -n "$UPDATE_ID" ]; then
+  # Keep the token out of the curl argument list for authenticated updates.
+  AUTH_FILE=$(mktemp)
+  TMP_FILES="$TMP_FILES $AUTH_FILE"
+  printf 'Authorization: Bearer %s\n' "$TOKEN" > "$AUTH_FILE"
+  printf '{"content":"%s"}\n' "$escaped_content" > "$PAYLOAD_FILE"
+  set -- -X PUT "$BASE_URL/v1/$UPDATE_ID" -H "@$AUTH_FILE"
+else
+  set -- -X POST "$BASE_URL/v1/push"
+fi
+
+if ! curl -sS "$@" -H "Content-Type: application/json" --data-binary "@$PAYLOAD_FILE" -w '\n__FASTMD_STATUS__:%{http_code}\n' > "$RESPONSE_FILE"; then
   echo "Error: network error" >&2
   exit 1
 fi
