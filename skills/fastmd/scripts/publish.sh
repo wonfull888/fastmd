@@ -3,7 +3,6 @@ set -eu
 umask 077
 
 BASE_URL="${FASTMD_BASE_URL:-https://fastmd.dev}"
-TOKEN_PREFIX="fmd_live_"
 TOKEN_PATH="${HOME}/.config/fastmd/token"
 TMP_FILES=""
 
@@ -24,15 +23,6 @@ Prints the document URL; --update preserves the existing URL.
 EOF
 }
 
-random_token() {
-  if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 6
-    return
-  fi
-
-  od -An -N6 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n'
-}
-
 json_escape_file() {
   # Escape bytes so backslashes, control characters and trailing newlines survive.
   od -An -v -tu1 "$1" | LC_ALL=C awk '{
@@ -47,23 +37,23 @@ json_escape_file() {
 }
 
 load_or_create_token() {
-  if [ -f "$TOKEN_PATH" ]; then
-    token=$(tr -d '\r\n' < "$TOKEN_PATH")
-    if [ -n "$token" ]; then
-      printf '%s\n' "$token"
-      return
-    fi
+  if [ -n "${FASTMD_API_TOKEN:-}" ]; then
+    printf '%s\n' "$FASTMD_API_TOKEN"
+    return
   fi
-
-  if [ -n "$UPDATE_ID" ]; then
-    echo "Error: updating requires the original token at $TOKEN_PATH; no new token was generated" >&2
-    return 1
+  if command -v python3 >/dev/null 2>&1 && [ -f "${HOME}/.config/fastmd/credentials.json" ]; then
+    token=$(python3 - "$BASE_URL" <<'PYTOKEN'
+import json, os, sys
+with open(os.path.join(os.path.expanduser('~'), '.config/fastmd/credentials.json')) as f:
+    value = json.load(f).get('servers', {}).get(sys.argv[1].rstrip('/'), {}).get('token', '')
+if value:
+    print(value)
+PYTOKEN
+    )
+    if [ -n "$token" ]; then printf '%s\n' "$token"; return; fi
   fi
-
-  token="${TOKEN_PREFIX}$(random_token)"
-  mkdir -p "$(dirname "$TOKEN_PATH")"
-  printf '%s\n' "$token" > "$TOKEN_PATH"
-  printf '%s\n' "$token"
+  echo "Error: run fastmd login first, or set FASTMD_API_TOKEN to your account's token; no token was generated" >&2
+  return 1
 }
 
 read_content() {
@@ -151,17 +141,16 @@ PAYLOAD_FILE=$(mktemp)
 TMP_FILES="$TMP_FILES $PAYLOAD_FILE"
 
 escaped_content=$(json_escape_file "$CONTENT_FILE")
-printf '{"content":"%s","token":"%s"}\n' "$escaped_content" "$TOKEN" > "$PAYLOAD_FILE"
+printf '{"content":"%s"}\n' "$escaped_content" > "$PAYLOAD_FILE"
 
+# Keep the token out of the curl argument list.
+AUTH_FILE=$(mktemp)
+TMP_FILES="$TMP_FILES $AUTH_FILE"
+printf 'Authorization: Bearer %s\n' "$TOKEN" > "$AUTH_FILE"
 if [ -n "$UPDATE_ID" ]; then
-  # Keep the token out of the curl argument list for authenticated updates.
-  AUTH_FILE=$(mktemp)
-  TMP_FILES="$TMP_FILES $AUTH_FILE"
-  printf 'Authorization: Bearer %s\n' "$TOKEN" > "$AUTH_FILE"
-  printf '{"content":"%s"}\n' "$escaped_content" > "$PAYLOAD_FILE"
   set -- -X PUT "$BASE_URL/v1/$UPDATE_ID" -H "@$AUTH_FILE"
 else
-  set -- -X POST "$BASE_URL/v1/push"
+  set -- -X POST "$BASE_URL/v1/push" -H "@$AUTH_FILE"
 fi
 
 if ! curl -sS "$@" -H "Content-Type: application/json" --data-binary "@$PAYLOAD_FILE" -w '\n__FASTMD_STATUS__:%{http_code}\n' > "$RESPONSE_FILE"; then
@@ -193,4 +182,4 @@ if [ -z "$URL" ]; then
 fi
 
 printf '%s\n' "$URL"
-printf 'Dashboard: %s/dashboard?token=%s\n' "$BASE_URL" "$TOKEN" >&2
+printf 'Dashboard: %s/dashboard\n' "$BASE_URL" >&2

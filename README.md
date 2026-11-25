@@ -5,17 +5,18 @@ Minimalist CLI-first Markdown hosting for developers and AI agents.
 `fastmd` lets you push Markdown from terminal to a short URL in milliseconds. The same document can be consumed by humans as HTML and by machines as raw Markdown.
 
 ```bash
+fastmd login
 cat report.md | fastmd
 # -> https://fastmd.dev/x7y2
 ```
 
 ---
 
-## Latest Update (v0.3.0 in progress)
+## Latest Update (v0.6.0)
 
-- Added 8-character IDs for new documents
-- Added token-authenticated `/v1/docs` API and web Dashboard
-- Added IP rate limiting and dashboard management flow
+- GitHub login and one automatically assigned, revealable API token
+- CLI browser authorization and remote MCP with six document tools
+- Stable document updates, idempotent creation and legacy ownership migration
 
 ---
 
@@ -72,7 +73,7 @@ If you use the `fastmd` skill in an agent environment, the skill name is just `f
 
 Expected behavior:
 
-- first run auto-generates a local token like `fmd_live_xxxx`
+- sign in first with `fastmd login`, or set `FASTMD_API_TOKEN` from your account dashboard
 - the skill pushes the Markdown report to fastmd.dev directly, without requiring CLI installation
 - the final result is one short URL instead of a huge inline report
 
@@ -84,7 +85,7 @@ agent finishes report -> fastmd skill loads token -> push succeeds -> URL return
 
 ### Dashboard
 
-Open `https://fastmd.dev/dashboard`, paste your `fmd_live_` token, and manage every document tied to that token.
+Open `https://fastmd.dev/dashboard` and sign in with GitHub. Your account receives one permanent API token automatically; it is masked by default, can be revealed again and cannot be reset.
 
 - list published docs
 - copy document URLs
@@ -103,7 +104,7 @@ fastmd update x7y2 report.md
 ```
 
 Replaces the complete Markdown while keeping the document ID, URL and creation time.
-The original publishing token must still be present at `~/.config/fastmd/token`.
+Sign in to the account that owns the document. Existing local legacy-token documents are claimed automatically by `fastmd login`; the original token file is preserved.
 Empty content and unauthorized updates are rejected. There is no version history;
 the last successful update wins.
 
@@ -155,8 +156,9 @@ Pipe AI skill outputs (SEO audits, content drafts, reports) to fastmd and share 
 
 ```bash
 curl -X POST https://fastmd.dev/v1/push \
+  -H "Authorization: Bearer $FASTMD_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"content":"# Hello\nWorld","token":"fmd_live_xxxx"}'
+  -d '{"content":"# Hello\nWorld"}'
 ```
 
 Response:
@@ -193,7 +195,7 @@ Human-friendly HTML view.
 
 ### `PUT /v1/:id`
 
-Replace an existing document using its original token:
+Replace a document owned by your account:
 
 ```bash
 curl -X PUT https://fastmd.dev/v1/Ab3kL9xQ \
@@ -227,17 +229,12 @@ curl https://fastmd.dev/v1/version
 
 ## Token & Privacy Model
 
-- First run generates token like `fmd_live_xxxx`
-- Token is saved locally at `~/.config/fastmd/token`
-- Server stores only token hash (`SHA-256`), never raw token
-- Token ownership controls delete permission
-- Detail/raw pages return no-index directives for privacy-first sharing
-
-Skill flow follows the same model: first use bootstraps the token locally, and later pushes reuse the same token automatically.
-
-Skill and CLI are separate products, but they share the same local token file at `~/.config/fastmd/token`.
-
-Dashboard uses the same token model. Paste the token in the browser to manage the document list for that identity.
+- GitHub sign-in creates your account and one fixed API token.
+- The dashboard masks the token by default; Show token reveals it again. No manual creation or reset is provided.
+- The backend keeps a token hash for authentication and an encrypted copy for account-only viewing.
+- CLI credentials are stored per server at `~/.config/fastmd/credentials.json`; the skill can reuse them with Python 3, or read `FASTMD_API_TOKEN` directly.
+- Document ownership belongs to the account, independent of CLI or MCP authorization credentials.
+- Public reading needs no login. Document pages include no-index directives; anyone with a link can read them.
 
 ---
 
@@ -282,3 +279,46 @@ See:
 ## License
 
 MIT
+
+## GitHub account configuration
+
+The server reads `.env` from its working directory. Existing process environment variables take priority. Never commit this file.
+
+```dotenv
+FASTMD_PUBLIC_URL=https://fastmd.dev
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+GITHUB_REDIRECT_URI=https://fastmd.dev/auth/github/callback
+```
+
+The GitHub OAuth app redirect URI must match exactly. No email service or repository permissions are required. GitHub credentials are used only to obtain a public identity; provider access and refresh tokens are not persisted.
+
+The server encrypts the fixed API token using a separate key at `<database-path>.key`, created automatically with owner-only permissions. Back up **both** the SQLite database and this key. Losing the key prevents token recovery; changing GitHub credentials does not change API tokens.
+
+## CLI authentication
+
+```sh
+fastmd login                 # GitHub sign-in, browser authorization for this CLI
+fastmd login --no-browser    # print a URL to open on another device
+fastmd login --token-stdin   # read the account API token securely from stdin
+fastmd whoami
+fastmd list --limit 50
+fastmd usage
+fastmd logout
+```
+
+CLI login credentials are stored per server in `~/.config/fastmd/credentials.json` with mode 0600. Noninteractive agents may instead use `FASTMD_API_TOKEN`. `--server <origin>` selects a different server. `--json` provides machine-readable output. `--request-id <stable-id>` makes a publish retry safe: reusing it with different content returns a conflict, and deleting its document does not allow a retry to recreate it.
+
+For manual legacy migration, use `fastmd claim --token-file ~/.config/fastmd/token` from a CLI browser login. Original document IDs, links and creation dates are preserved. Old anonymous credentials cannot create new documents.
+
+## Remote MCP
+
+Use a single Streamable HTTP endpoint:
+
+```text
+https://fastmd.dev/mcp
+```
+
+Clients can connect through OAuth discovery and PKCE, or send `Authorization: Bearer <your-api-token>`. The six tools are `create_document`, `update_document`, `get_document`, `list_documents`, `delete_document`, and `get_usage`. OAuth connections have separate short-lived access tokens and rotating refresh tokens; disconnect them in the dashboard without changing the fixed API token. This project does not provide a local stdio or legacy SSE server.
+
+For browser-based MCP clients with a different origin, set `FASTMD_MCP_ORIGINS` to a space-separated allowlist. CLI clients do not need this setting. Document read links remain public; mutation and account listings require account ownership.

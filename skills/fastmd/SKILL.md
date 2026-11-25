@@ -2,7 +2,7 @@
 name: fastmd
 description: Publish Markdown as a fastmd.dev URL, or update an existing fastmd document while keeping its link. Use when the user asks to publish Markdown or replace a previously published document.
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
 allowed-tools:
   - Bash
   - Read
@@ -52,7 +52,7 @@ Publish Markdown to fastmd.dev, or update an existing document without changing 
 3. Run `publish.sh --update <ID> --file <tempfile>` using the helper lookup below.
 4. Return the original URL printed on stdout. If updating fails, report the error; do not fall back to creating a new document.
 
-Updates require the original publishing token. The helper never generates a new token in update mode. Replacements have no version history; the last successful save wins.
+Updates require a credential for the account that owns the document. The helper never generates tokens. Replacements have no version history; the last successful save wins.
 
 ## Helper Script Lookup
 
@@ -64,6 +64,8 @@ Use the first existing path from this list:
 
 ## Notes
 
-- The skill shares the token file used by fastmd CLI: `~/.config/fastmd/token`.
-- Publishing generates a token if none exists. Updating requires the original token.
+- Sign in first with `fastmd login`. The helper reads the server-specific credential from `~/.config/fastmd/credentials.json` using Python 3.
+- Without the CLI, set `FASTMD_API_TOKEN` to the fixed API token from your GitHub account dashboard; this path only needs `sh` and `curl`.
+- Never put credentials in URLs, published content or chat output.
+- For a remote MCP client, use `https://fastmd.dev/mcp` with OAuth or a Bearer API token. The server offers create_document, update_document, get_document, list_documents, delete_document and get_usage.
 - This skill talks to `https://fastmd.dev` directly and does not require the CLI.

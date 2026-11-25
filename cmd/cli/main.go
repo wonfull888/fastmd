@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -51,6 +50,7 @@ func main() {
 	if endpoint := os.Getenv("FASTMD_BASE_URL"); endpoint != "" {
 		baseURL = strings.TrimRight(endpoint, "/")
 	}
+	parseGlobalArgs()
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `fastmd %s — Markdown pipeline for AI Agents & developers
 
@@ -60,6 +60,12 @@ Usage:
   fastmd get <ID>               Pull document to local file
   fastmd update <ID> <file>     Replace a document, keeping its URL
   fastmd delete <ID>            Delete a document
+  fastmd list                   List your documents
+  fastmd usage                  Show account and document count
+  fastmd login                  Sign in with GitHub in your browser
+  fastmd logout                 Revoke this login
+  fastmd whoami                 Show current account
+  --json / --server <origin>     Machine output / server selection
   fastmd upgrade                Upgrade to latest version
   fastmd --version              Print version
 
@@ -78,6 +84,10 @@ Usage:
 	}
 
 	switch os.Args[1] {
+	case "--help", "-h", "help":
+		flag.Usage()
+	case "list", "usage", "login", "logout", "whoami", "claim":
+		accountCommand(os.Args[1:])
 	case "--version", "-v", "version":
 		fmt.Printf("fastmd %s\n", Version)
 	case "push":
@@ -133,20 +143,24 @@ func pushFromReader(r io.Reader) {
 		die("Error: content is empty")
 	}
 
-	token := loadOrCreateToken()
+	token := loadToken()
 
 	body, _ := json.Marshal(map[string]string{
-		"content": string(content),
-		"token":   token,
+		"content":    string(content),
+		"request_id": requestID,
 	})
 
-	resp, err := httpClient.Post(baseURL+"/v1/push", "application/json", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/v1/push", bytes.NewReader(body))
+	must(err, "create push request")
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := httpClient.Do(req)
 	must(err, "push request")
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
-		die("Error: server returned %d: %s", resp.StatusCode, string(b))
+		handleHTTPError(resp.StatusCode, b)
 	}
 
 	var result struct {
@@ -154,7 +168,12 @@ func pushFromReader(r io.Reader) {
 		URL string `json:"url"`
 	}
 	must(json.NewDecoder(resp.Body).Decode(&result), "decode response")
-	fmt.Printf("✓  Published → %s\n", result.URL)
+	if jsonOutput {
+		encoded, _ := json.Marshal(result)
+		printJSON(encoded)
+	} else {
+		fmt.Printf("✓  Published → %s\n", result.URL)
+	}
 }
 
 // ── Update ────────────────────────────────────────────────────────────────
@@ -165,24 +184,19 @@ func cmdUpdate(id string, r io.Reader) {
 	if strings.TrimSpace(string(content)) == "" {
 		die("Error: content is empty")
 	}
-	home, err := os.UserHomeDir()
-	must(err, "get home dir")
-	data, err := os.ReadFile(filepath.Join(home, configDir, tokenFile))
-	if err != nil || strings.TrimSpace(string(data)) == "" {
-		die("Error: updating requires the original token at ~/%s/%s; no new token was generated", configDir, tokenFile)
-	}
+	token := loadToken()
 	body, err := json.Marshal(map[string]string{"content": string(content)})
 	must(err, "encode update")
 	req, err := http.NewRequest(http.MethodPut, baseURL+"/v1/"+id, bytes.NewReader(body))
 	must(err, "create update request")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(data)))
+	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := httpClient.Do(req)
 	must(err, "update request")
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
-		die("Error: server returned %d: %s", resp.StatusCode, string(b))
+		handleHTTPError(resp.StatusCode, b)
 	}
 	var result struct {
 		URL string `json:"url"`
@@ -191,7 +205,12 @@ func cmdUpdate(id string, r io.Reader) {
 	if result.URL == "" {
 		die("Error: server response did not include a URL")
 	}
-	fmt.Printf("✓  Updated → %s\n", result.URL)
+	if jsonOutput {
+		encoded, _ := json.Marshal(map[string]string{"id": id, "url": result.URL})
+		printJSON(encoded)
+	} else {
+		fmt.Printf("✓  Updated → %s\n", result.URL)
+	}
 }
 
 // ── Get ───────────────────────────────────────────────────────────────────
@@ -214,6 +233,11 @@ func cmdGet(id string) {
 	content, err := io.ReadAll(resp.Body)
 	must(err, "read response")
 
+	if jsonOutput {
+		encoded, _ := json.Marshal(map[string]string{"id": id, "url": baseURL + "/" + id + ".md", "content": string(content)})
+		printJSON(encoded)
+		return
+	}
 	filename := slugify(extractH1(string(content)))
 	if filename == "" {
 		filename = id
@@ -227,7 +251,7 @@ func cmdGet(id string) {
 // ── Delete ────────────────────────────────────────────────────────────────
 
 func cmdDelete(id string) {
-	token := loadOrCreateToken()
+	token := loadToken()
 
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/v1/%s", baseURL, id), nil)
 	must(err, "create request")
@@ -239,7 +263,11 @@ func cmdDelete(id string) {
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		fmt.Printf("✓  Deleted: %s\n", id)
+		if jsonOutput {
+			printJSON([]byte(`{"ok":true,"id":"` + id + `"}`))
+		} else {
+			fmt.Printf("✓  Deleted: %s\n", id)
+		}
 	case http.StatusForbidden:
 		die("Error: document not found or token mismatch")
 	default:
@@ -258,42 +286,6 @@ func cmdUpgrade() {
 }
 
 // ── Token ─────────────────────────────────────────────────────────────────
-
-func loadOrCreateToken() string {
-	home, err := os.UserHomeDir()
-	must(err, "get home dir")
-
-	dir := filepath.Join(home, configDir)
-	path := filepath.Join(dir, tokenFile)
-
-	data, err := os.ReadFile(path)
-	if err == nil {
-		token := strings.TrimSpace(string(data))
-		if token != "" {
-			return token
-		}
-	}
-
-	// Generate new token
-	token := tokenPfx + randString(12)
-	must(os.MkdirAll(dir, 0700), "create config dir")
-	must(os.WriteFile(path, []byte(token+"\n"), 0600), "write token")
-	fmt.Fprintf(os.Stderr, "Token generated and saved to ~/%s/%s\n", configDir, tokenFile)
-	return token
-}
-
-func randString(n int) string {
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, n)
-	f, _ := os.Open("/dev/urandom")
-	defer f.Close()
-	raw := make([]byte, n)
-	f.Read(raw)
-	for i, v := range raw {
-		b[i] = chars[int(v)%len(chars)]
-	}
-	return string(b)
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -327,12 +319,10 @@ func slugify(s string) string {
 
 func must(err error, msg string) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error (%s): %v\n", msg, err)
-		os.Exit(1)
+		apiDie("CLIENT_ERROR", fmt.Sprintf("%s: %v", msg, err))
 	}
 }
 
 func die(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
-	os.Exit(1)
+	apiDie("CLIENT_ERROR", fmt.Sprintf(format, args...))
 }

@@ -21,7 +21,7 @@
       </button>
     </div>
 
-    <p class="token-note">Token is stored locally only, and only a hashed token is stored on the backend.</p>
+    <p class="token-note">Sign in once with GitHub. Publish and update through CLI, MCP or API.</p>
 
     <div class="terminal-shell" aria-label="Terminal simulation">
       <div class="terminal-bar">
@@ -102,8 +102,7 @@
   <div class="container">
     <h2 class="section-title">AI Integration</h2>
     <p class="section-intro">
-      The `fastmd` skill turns long agent output into one short link. First run creates a local token, every push binds
-      ownership through token hash, and the final response stays clean.
+      Connect your agent to <code>https://fastmd.dev/mcp</code>, or use the CLI and skill. Your GitHub account owns your documents across clients.
     </p>
 
     <div class="card-grid two ai-grid">
@@ -127,11 +126,10 @@
       <article class="card ai-card">
         <h3>Why it fits agent workflows</h3>
         <p>
-          No login screen, no browser handoff, no extra state to manage. The first publish generates a token
-          automatically, later publishes reuse it, and the same token keeps delete ownership simple.
+          Run <code>fastmd login</code> to sign in through GitHub. Agents can use MCP OAuth or your account’s API token to create, read, update, list and delete documents.
         </p>
         <ul class="ai-points">
-          <li>First run auto-generates <code>fmd_live_xxxx</code></li>
+          <li>One permanent API token is assigned at first sign-in</li>
           <li>Push returns one short URL for handoff</li>
           <li>Humans read HTML, agents can fetch <code>.md</code></li>
         </ul>
@@ -178,8 +176,9 @@ fastmd upgrade</code></pre>
             <button type="button" class="code-copy" onclick="copyCode(this)">Copy</button>
           </div>
           <pre><code>curl -X POST https://fastmd.dev/v1/push \
+  -H "Authorization: Bearer $FASTMD_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"content":"# Hello\\nWorld","token":"fmd_live_xxxx"}'</code></pre>
+  -d '{"content":"# Hello\nWorld"}'</code></pre>
         </div>
 
         <div class="code-block">
@@ -226,8 +225,8 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
         <p>Document pages are isolated with strict no-index directives so your drafts, logs, and prompts stay private.</p>
       </article>
       <article class="why-feature">
-        <h2>Frictionless Identity: Token is Everything</h2>
-        <p>Skip email and password flows. Anonymous <code>fmd_live_</code> tokens act as instant identity by default.</p>
+        <h2>One Account, CLI and MCP</h2>
+        <p>Sign in with GitHub without email codes or passwords. Use the same account from your CLI, MCP client or API.</p>
       </article>
     </div>
   </div>
@@ -244,7 +243,7 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
           <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
-          On first run, fastmd creates a token and stores it at <code>~/.config/fastmd/token</code>.
+          Your API token is available in the account dashboard. CLI login credentials are stored in <code>~/.config/fastmd/credentials.json</code>.
         </div>
       </article>
 
@@ -254,7 +253,7 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
           <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
-          Documents remain readable, but deletion is no longer possible without the original token.
+          Sign in with GitHub and click Show token in your dashboard to view the same token again. Tokens cannot be reset.
         </div>
       </article>
 
@@ -284,7 +283,7 @@ curl -X DELETE https://fastmd.dev/v1/x7y2 \
           <span class="faq-plus">+</span>
         </button>
         <div class="faq-answer">
-          The token is stored locally only, and the backend stores only its hash. Raw token values are never stored.
+          Your API token is encrypted on the server and masked by default. Browser sessions are separate from API tokens.
         </div>
       </article>
 

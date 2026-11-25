@@ -40,7 +40,23 @@ func TestDocumentAPIRegression(t *testing.T) {
 	if rec := request("GET", "/v1/docs", "", ""); rec.Code != 401 {
 		t.Fatalf("unauthenticated list: %d", rec.Code)
 	}
-	created := request("POST", "/v1/push", `{"content":"# Original\n\nOriginal text","token":"owner"}`, "")
+	user, err := db.GitHubLogin(1, "owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, err := db.DefaultToken(user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherUser, err := db.GitHubLogin(2, "other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := db.DefaultToken(otherUser.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := request("POST", "/v1/push", `{"content":"# Original\n\nOriginal text"}`, "Bearer "+owner)
 	var result struct{ ID, URL string }
 	if created.Code != 200 || json.Unmarshal(created.Body.Bytes(), &result) != nil || len(result.ID) != 8 {
 		t.Fatalf("create failed: %d %s", created.Code, created.Body)
@@ -53,14 +69,14 @@ func TestDocumentAPIRegression(t *testing.T) {
 		{"no token", result.ID, `{"content":"bad"}`, "", 401},
 		{"invalid auth scheme", result.ID, `{"content":"bad"}`, "owner", 401},
 		{"empty bearer", result.ID, `{"content":"bad"}`, "Bearer   ", 401},
-		{"wrong token", result.ID, `{"content":"bad"}`, "Bearer other", 403},
-		{"missing document", "notFound", `{"content":"bad"}`, "Bearer owner", 403},
-		{"empty content", result.ID, `{"content":" \n\t"}`, "Bearer owner", 400},
-		{"missing content", result.ID, `{}`, "Bearer owner", 400},
-		{"null", result.ID, `null`, "Bearer owner", 400},
-		{"invalid JSON", result.ID, `{`, "Bearer owner", 400},
-		{"wrong type", result.ID, `{"content":42}`, "Bearer owner", 400},
-		{"body limit", result.ID, `{"content":"` + strings.Repeat("x", 1024*1024) + `"}`, "Bearer owner", 413},
+		{"wrong token", result.ID, `{"content":"bad"}`, "Bearer " + other, 404},
+		{"missing document", "notFound", `{"content":"bad"}`, "Bearer " + owner, 404},
+		{"empty content", result.ID, `{"content":" \n\t"}`, "Bearer " + owner, 400},
+		{"missing content", result.ID, `{}`, "Bearer " + owner, 400},
+		{"null", result.ID, `null`, "Bearer " + owner, 400},
+		{"invalid JSON", result.ID, `{`, "Bearer " + owner, 400},
+		{"wrong type", result.ID, `{"content":42}`, "Bearer " + owner, 400},
+		{"body limit", result.ID, `{"content":"` + strings.Repeat("x", 1024*1024) + `"}`, "Bearer " + owner, 413},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := request("PUT", "/v1/"+tc.id, tc.body, tc.auth)
@@ -76,7 +92,7 @@ func TestDocumentAPIRegression(t *testing.T) {
 	content := "# New title\n\nUpdated 中文 description.\n\n```sh\necho \"hello\"\n```\n"
 	payload, _ := json.Marshal(map[string]string{"content": content})
 	for attempt := 0; attempt < 2; attempt++ {
-		rec := request("PUT", "/v1/"+result.ID, string(payload), "Bearer owner")
+		rec := request("PUT", "/v1/"+result.ID, string(payload), "Bearer "+owner)
 		var updated struct{ ID, URL string }
 		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &updated) != nil || updated != result {
 			t.Fatalf("update changed ID/URL or failed: %d %s", rec.Code, rec.Body)
@@ -99,18 +115,18 @@ func TestDocumentAPIRegression(t *testing.T) {
 			t.Fatalf("raw Markdown mismatch: %d %q", raw.Code, raw.Body.String())
 		}
 	}
-	listed := request("GET", "/v1/docs", "", "Bearer owner")
+	listed := request("GET", "/v1/docs", "", "Bearer "+owner)
 	var list struct{ Documents []struct{ ID, Title string } }
 	if listed.Code != 200 || json.Unmarshal(listed.Body.Bytes(), &list) != nil || len(list.Documents) != 1 || list.Documents[0].Title != "New title" {
 		t.Fatalf("list regression: %d %s", listed.Code, listed.Body)
 	}
-	if rec := request("DELETE", "/v1/"+result.ID, "", "Bearer other"); rec.Code != 403 {
+	if rec := request("DELETE", "/v1/"+result.ID, "", "Bearer "+other); rec.Code != 404 {
 		t.Fatalf("wrong-token delete: %d", rec.Code)
 	}
-	if rec := request("DELETE", "/v1/"+result.ID, "", "Bearer owner"); rec.Code != 200 {
+	if rec := request("DELETE", "/v1/"+result.ID, "", "Bearer "+owner); rec.Code != 200 {
 		t.Fatalf("delete: %d", rec.Code)
 	}
-	if rec := request("PUT", "/v1/"+result.ID, string(payload), "Bearer owner"); rec.Code != 403 {
+	if rec := request("PUT", "/v1/"+result.ID, string(payload), "Bearer "+owner); rec.Code != 404 {
 		t.Fatalf("deleted document was updated: %d", rec.Code)
 	}
 	if rec := request(http.MethodGet, "/"+result.ID, "", ""); rec.Code != 404 {

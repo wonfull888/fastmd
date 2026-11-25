@@ -48,3 +48,11 @@ dist/
 # Database file
 *.db
 data/
+
+# Runtime credentials and local artifacts
+*.db.key
+*.log
+fastmd.pid
+/cli
+/server
+.DS_Store

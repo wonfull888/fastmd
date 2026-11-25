@@ -1,47 +1,10 @@
 {{define "content"}}
-<section class="dashboard-page">
-  <div class="container dashboard-shell">
-    <div class="dashboard-header">
-      <div>
-        <p class="dashboard-kicker">fastmd Dashboard</p>
-        <h1>Your Documents</h1>
-      </div>
-      <div class="dashboard-header-actions">
-        <button id="dashboard-refresh" class="btn-action" type="button">Refresh</button>
-        <button id="dashboard-switch" class="btn-action" type="button">Switch token</button>
-        <a href="/" class="btn-home">← Home</a>
-      </div>
-    </div>
-
-    <!-- No token state: input + guide -->
-    <section id="dashboard-auth" class="dashboard-auth card" style="display:none">
-      <h2>Enter your token</h2>
-      <p class="dashboard-intro">
-        Paste the <code>fmd_live_</code> token from your local file to view and manage your documents.
-      </p>
-      <div class="dashboard-auth-row">
-        <input id="dashboard-token" class="dashboard-input" type="password" placeholder="fmd_live_xxxx" autocomplete="off">
-        <button id="dashboard-load" class="btn btn-primary" type="button">Open Dashboard</button>
-      </div>
-      <div class="dashboard-guide">
-        <p class="dashboard-guide-title">Don't have the link? Find your token:</p>
-        <div class="code-block">
-          <div class="code-head">
-            <span>Terminal</span>
-            <button type="button" class="code-copy" onclick="copyCode(this)">Copy</button>
-          </div>
-          <pre><code>cat ~/.config/fastmd/token</code></pre>
-        </div>
-        <p class="dashboard-guide-hint">After your first <code>fastmd</code> publish, the dashboard link is printed in the terminal automatically.</p>
-      </div>
-    </section>
-
-    <!-- Document list -->
-    <section id="dashboard-list" class="dashboard-list card" style="display:none">
-      <p id="dashboard-status"></p>
-      <div id="dashboard-empty" class="dashboard-empty" style="display:none">No documents found for this token.</div>
-      <div id="dashboard-docs" class="dashboard-docs"></div>
-    </section>
-  </div>
-</section>
+<section class="dashboard-page"><div class="container dashboard-shell" id="account-dashboard">
+  <div class="dashboard-header"><div><p class="dashboard-kicker">fastmd account</p><h1>Your Documents</h1><p id="account-email"></p></div><div class="dashboard-header-actions"><button id="account-refresh" class="btn-action">Refresh</button><button id="account-logout" class="btn-action">Sign out</button><a href="/" class="btn-home">Home</a></div></div>
+  <p id="account-status" role="status"></p>
+  <section class="card dashboard-list"><h2>Documents</h2><p id="account-usage"></p><div id="account-documents"></div><button id="account-more" class="btn-action" hidden>Load more</button></section>
+  <section class="card dashboard-list"><h2>API token</h2><p>Your account has one permanent API token for CLI, MCP and API access.</p><pre id="account-token">fmd_live_••••••••••••••••••••••••</pre><button id="toggle-token" class="btn-action" type="button" aria-expanded="false">Show token</button><button id="copy-token" class="btn-action" type="button">Copy token</button></section>
+  <section class="card dashboard-list"><h2>Connect an agent</h2><p>MCP endpoint: <code id="mcp-endpoint"></code></p><p>Connect using your MCP client's OAuth login, or configure your API token as a Bearer credential.</p><p>CLI: run <code>fastmd login</code>, then <code>fastmd push file.md</code> or <code>fastmd update ID file.md</code>.</p></section>
+  <section class="card dashboard-list"><h2>Connected MCP clients</h2><div id="account-connections"></div></section>
+</div></section>
 {{end}}

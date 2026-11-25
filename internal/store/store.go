@@ -19,6 +19,7 @@ type Document struct {
 	TokenHash string
 	CreatedAt int64
 	ExpiresAt *int64
+	UserID    string
 }
 
 // DocumentSummary represents the dashboard list view of a document.
@@ -30,7 +31,8 @@ type DocumentSummary struct {
 
 // Store wraps the SQLite database.
 type Store struct {
-	db *sql.DB
+	db       *sql.DB
+	tokenKey []byte
 }
 
 // New opens (or creates) the SQLite database at path.
@@ -41,9 +43,15 @@ func New(path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1) // SQLite: serialise writes
 	if err := migrate(db); err != nil {
+		db.Close()
 		return nil, err
 	}
-	return &Store{db: db}, nil
+	key, err := loadTokenKey(db, path)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	return &Store{db: db, tokenKey: key}, nil
 }
 
 func migrate(db *sql.DB) error {
@@ -59,8 +67,13 @@ func migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_token_hash ON documents(token_hash);
 		CREATE INDEX IF NOT EXISTS idx_expires_at  ON documents(expires_at);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	return migrateAccounts(db)
 }
+
+func (s *Store) Close() error { return s.db.Close() }
 
 // HashToken returns SHA-256 hex of a token string.
 func HashToken(token string) string {
@@ -134,13 +147,13 @@ func (s *Store) ListByTokenHash(tokenHash string) ([]DocumentSummary, error) {
 // GetByID returns a document by ID, or nil if not found / expired.
 func (s *Store) GetByID(id string) (*Document, error) {
 	row := s.db.QueryRow(
-		`SELECT id, content, token_hash, created_at, expires_at
+		`SELECT id, content, token_hash, created_at, expires_at, COALESCE(user_id, '')
 		 FROM documents
 		 WHERE id = ? AND (expires_at IS NULL OR expires_at > ?)`,
 		id, time.Now().Unix(),
 	)
 	var doc Document
-	err := row.Scan(&doc.ID, &doc.Content, &doc.TokenHash, &doc.CreatedAt, &doc.ExpiresAt)
+	err := row.Scan(&doc.ID, &doc.Content, &doc.TokenHash, &doc.CreatedAt, &doc.ExpiresAt, &doc.UserID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

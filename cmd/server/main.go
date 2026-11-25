@@ -6,7 +6,9 @@ import (
 	"html/template"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -15,6 +17,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	fastmd "github.com/wonfull888/fastmd"
+	"github.com/wonfull888/fastmd/internal/app"
+	"github.com/wonfull888/fastmd/internal/config"
 	"github.com/wonfull888/fastmd/internal/render"
 	"github.com/wonfull888/fastmd/internal/store"
 )
@@ -298,7 +302,12 @@ func absoluteURL(c echo.Context, path string) string {
 }
 
 func main() {
+	if err := config.LoadEnv(".env"); err != nil {
+		log.Fatal(err)
+	}
 	port := flag.String("port", "8080", "Server port")
+	host := flag.String("host", "127.0.0.1", "Listen address")
+	publicURL := flag.String("public-url", os.Getenv("FASTMD_PUBLIC_URL"), "Public HTTP(S) origin")
 	dbPath := flag.String("db", "fastmd.db", "SQLite database path")
 	flag.Parse()
 
@@ -308,15 +317,31 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	e, err := newServer(db)
+	if *publicURL == "" {
+		*publicURL = "http://" + net.JoinHostPort(*host, *port)
+	}
+	github := app.GitHubConfig{ClientID: os.Getenv("GITHUB_CLIENT_ID"), ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"), RedirectURI: os.Getenv("GITHUB_REDIRECT_URI")}
+	if (github.ClientID == "") != (github.ClientSecret == "") {
+		log.Fatal("both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required")
+	}
+	if github.RedirectURI != "" && github.RedirectURI != strings.TrimRight(*publicURL, "/")+"/auth/github/callback" {
+		log.Fatal("GITHUB_REDIRECT_URI must match FASTMD_PUBLIC_URL/auth/github/callback")
+	}
+	e, err := newServerWithOptions(db, app.Options{PublicURL: *publicURL, GitHub: github, MCPOrigins: strings.Fields(os.Getenv("FASTMD_MCP_ORIGINS"))})
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("fastmd %s starting on :%s", Version, *port)
-	e.Logger.Fatal(e.Start(":" + *port))
+	e.Server.ReadHeaderTimeout = 10 * time.Second
+	e.Server.IdleTimeout = 60 * time.Second
+	e.Logger.Fatal(e.Start(net.JoinHostPort(*host, *port)))
 }
 
 func newServer(db *store.Store) (*echo.Echo, error) {
+	return newServerWithOptions(db, app.Options{PublicURL: "http://example.com"})
+}
+
+func newServerWithOptions(db *store.Store, options app.Options) (*echo.Echo, error) {
 	// Templates (from embedded FS)
 	if err := loadTemplates(); err != nil {
 		return nil, fmt.Errorf("failed to load templates: %w", err)
@@ -327,7 +352,8 @@ func newServer(db *store.Store) (*echo.Echo, error) {
 	e.HideBanner = true
 
 	// Middleware
-	e.Use(middleware.Logger())
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Format: "${method} ${path} ${status}\n"}))
+	e.Use(middleware.SecureWithConfig(middleware.SecureConfig{XFrameOptions: "DENY", ContentTypeNosniff: "nosniff", ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"}))
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("1MB"))
 	e.Use(middleware.CORS())
@@ -363,7 +389,7 @@ func newServer(db *store.Store) (*echo.Echo, error) {
 		title := "fastmd.dev | Minimalist CLI-First Markdown Hosting for Developers & AI Agents"
 		description := "Instantly pipe Markdown from terminal to web. fastmd.dev is a minimalist, CLI-first hosting service for developers and AI agents. Anonymous, fast, and no-indexed by default."
 		ogTitle := "fastmd.dev | The Markdown Pipe for CLI & AI"
-		ogDescription := "Share Markdown in milliseconds. No login. AI-native dual view. Hard-coded for privacy."
+		ogDescription := "Share Markdown in milliseconds. Built for AI agents, with GitHub sign-in and CLI or MCP access."
 		canonical := "https://fastmd.dev/"
 		ogImage := "https://fastmd.dev/static/og-fastmd.svg"
 
@@ -398,117 +424,17 @@ func newServer(db *store.Store) (*echo.Echo, error) {
 		})
 	})
 
-	// GET /v1/docs
-	e.GET("/v1/docs", func(c echo.Context) error {
-		auth := c.Request().Header.Get("Authorization")
-		token := strings.TrimPrefix(auth, "Bearer ")
-		if token == "" {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization required"})
-		}
-
-		docs, err := db.ListByTokenHash(store.HashToken(token))
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		}
-
-		items := make([]map[string]interface{}, 0, len(docs))
-		for _, doc := range docs {
-			items = append(items, map[string]interface{}{
-				"id":         doc.ID,
-				"title":      extractTitle(doc.Content, doc.ID),
-				"created_at": doc.CreatedAt,
-				"url":        absoluteURL(c, "/"+doc.ID+".md"),
-			})
-		}
-		return c.JSON(http.StatusOK, map[string]interface{}{"documents": items})
-	})
-
-	// POST /v1/push
-	e.POST("/v1/push", func(c echo.Context) error {
-		var req struct {
-			Content string `json:"content"`
-			Token   string `json:"token"`
-		}
-		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
-		}
-		if strings.TrimSpace(req.Content) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "content is empty"})
-		}
-		if strings.TrimSpace(req.Token) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "token is required"})
-		}
-
-		tokenHash := store.HashToken(req.Token)
-		ipHash := store.HashToken(c.RealIP())
-
-		id, err := db.Create(req.Content, tokenHash, ipHash)
-		if err != nil {
-			log.Printf("create error: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		}
-
-		url := absoluteURL(c, "/"+id+".md")
-
-		// Set token cookie so dashboard can auto-fill it.
-		cookie := new(http.Cookie)
-		cookie.Name = "fastmd_token"
-		cookie.Value = req.Token
-		cookie.Path = "/"
-		cookie.MaxAge = 60 * 60 * 24 * 365 // 1 year
-		cookie.HttpOnly = false            // JS needs to read it
-		cookie.SameSite = http.SameSiteLaxMode
-		c.SetCookie(cookie)
-
-		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": url})
-	})
-
-	// PUT /v1/:id: replace content while preserving the document's public URL.
-	e.PUT("/v1/:id", func(c echo.Context) error {
-		token, ok := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
-		if !ok || strings.TrimSpace(token) == "" {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization required"})
-		}
-		var req struct {
-			Content string `json:"content"`
-		}
-		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
-		}
-		if strings.TrimSpace(req.Content) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "content is empty"})
-		}
-		id := c.Param("id")
-		updated, err := db.Update(id, req.Content, store.HashToken(token))
-		if err != nil {
-			log.Printf("update error: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		}
-		if !updated {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "document not found, expired, or token mismatch"})
-		}
-		return c.JSON(http.StatusOK, map[string]string{"id": id, "url": absoluteURL(c, "/"+id+".md")})
-	})
-
-	// DELETE /v1/:id
-	e.DELETE("/v1/:id", func(c echo.Context) error {
-		id := c.Param("id")
-		auth := c.Request().Header.Get("Authorization")
-		token := strings.TrimPrefix(auth, "Bearer ")
-		if token == "" {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authorization required"})
-		}
-		deleted, err := db.Delete(id, store.HashToken(token))
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		}
-		if !deleted {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "not found or token mismatch"})
-		}
-		return c.JSON(http.StatusOK, map[string]bool{"ok": true})
-	})
+	accountApp, err := app.Register(e, db, options)
+	if err != nil {
+		return nil, err
+	}
+	e.GET("/login", func(c echo.Context) error { return accountApp.LoginPage(c, c.QueryParam("next")) })
 
 	e.GET("/dashboard", func(c echo.Context) error {
+		if _, err := accountApp.Session(c); err != nil {
+			return accountApp.LoginPage(c, "/dashboard")
+		}
+		c.Response().Header().Set("Cache-Control", "no-store")
 		canonical := absoluteURL(c, "/dashboard")
 		return renderPage(c, http.StatusOK, "dashboard", map[string]interface{}{
 			"Title":              "Dashboard | fastmd.dev",
@@ -608,7 +534,7 @@ func newServer(db *store.Store) (*echo.Echo, error) {
 		// M-5, M-6: rendered doc page with dynamic OG
 		htmlContent, err := render.ToHTML(doc.Content)
 		if err != nil {
-			htmlContent = "<pre>" + doc.Content + "</pre>"
+			htmlContent = "<pre>" + template.HTMLEscapeString(doc.Content) + "</pre>"
 		}
 		c.Response().Header().Set("X-Robots-Tag", robots)
 		return renderPage(c, http.StatusOK, "doc", map[string]interface{}{

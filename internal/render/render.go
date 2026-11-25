@@ -2,6 +2,9 @@ package render
 
 import (
 	"bytes"
+	"regexp"
+
+	"github.com/microcosm-cc/bluemonday"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -24,11 +27,21 @@ var md = goldmark.New(
 	),
 )
 
+var policy = func() *bluemonday.Policy {
+	p := bluemonday.UGCPolicy()
+	p.AllowAttrs("class").OnElements("pre", "code", "span", "table", "td", "th")
+	p.AllowAttrs("id").OnElements("h1", "h2", "h3", "h4", "h5", "h6", "li", "sup", "a")
+	p.AllowElements("input")
+	p.AllowAttrs("type").Matching(regexp.MustCompile(`^checkbox$`)).OnElements("input")
+	p.AllowAttrs("disabled", "checked").OnElements("input")
+	return p
+}()
+
 // ToHTML converts Markdown source to an HTML string.
 func ToHTML(markdown string) (string, error) {
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(markdown), &buf); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
+	return policy.Sanitize(buf.String()), nil
 }

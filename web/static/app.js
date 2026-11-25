@@ -143,184 +143,108 @@ function toggleFaq(button) {
 })();
 
 (function setupDashboard() {
-  const authSection = document.getElementById("dashboard-auth");
-  if (!authSection) return;
-
-  const listSection  = document.getElementById("dashboard-list");
-  const tokenInput   = document.getElementById("dashboard-token");
-  const loadButton   = document.getElementById("dashboard-load");
-  const refreshButton = document.getElementById("dashboard-refresh");
-  const switchButton = document.getElementById("dashboard-switch");
-  const statusEl     = document.getElementById("dashboard-status");
-  const emptyEl      = document.getElementById("dashboard-empty");
-  const docsEl       = document.getElementById("dashboard-docs");
-  const cookieName   = "fastmd_token";
-  const cookieMaxAge = 60 * 60 * 24 * 365;
-
-  // ── cookie helpers ──────────────────────────────────────────────
-  function getCookie() {
-    const match = document.cookie.split(";").map(s => s.trim())
-      .find(s => s.startsWith(cookieName + "="));
-    return match ? decodeURIComponent(match.split("=")[1]) : "";
-  }
-
-  function setCookie(token) {
-    document.cookie = cookieName + "=" + encodeURIComponent(token) +
-      ";path=/;max-age=" + cookieMaxAge + ";SameSite=Lax";
-  }
-
-  function clearCookie() {
-    document.cookie = cookieName + "=;path=/;max-age=0";
-  }
-
-  // ── view helpers ─────────────────────────────────────────────────
-  function showAuth() {
-    authSection.style.display = "";
-    listSection.style.display = "none";
-  }
-
-  function showList() {
-    authSection.style.display = "none";
-    listSection.style.display = "";
-  }
-
-  function setStatus(msg) {
-    if (statusEl) statusEl.textContent = msg;
-  }
-
-  // ── active token (from cookie only after first load) ─────────────
-  var activeToken = "";
-
-  // ── render ───────────────────────────────────────────────────────
-  function formatDate(ts) {
-    const d = new Date(ts * 1000);
-    return Number.isNaN(d.getTime()) ? "Unknown date" : d.toLocaleString();
-  }
-
-  function renderDocs(items) {
-    docsEl.innerHTML = "";
-    if (!items.length) {
-      emptyEl.style.display = "block";
-      return;
+  const root = document.getElementById("account-dashboard");
+  if (!root) return;
+  let csrf = "";
+  let cursor = "";
+  let pending = false;
+  const status = document.getElementById("account-status");
+  const documents = document.getElementById("account-documents");
+  const tokenText = document.getElementById("account-token");
+  let visibleToken = "";
+  const tokenButton = document.getElementById("toggle-token");
+  const mask = "fmd_live_••••••••••••••••••••••••";
+  document.getElementById("mcp-endpoint").textContent = window.location.origin + "/mcp";
+  async function api(path, method = "GET", body) {
+    const headers = {};
+    if (method !== "GET") headers["X-CSRF-Token"] = csrf;
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const response = await fetch(path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) window.location.assign("/login?next=/dashboard");
+      throw new Error(data.error || "Request failed");
     }
-    emptyEl.style.display = "none";
-    items.forEach(function (doc) {
+    return data;
+  }
+  function button(label, action) {
+    const element = document.createElement("button");
+    element.className = "btn-action";
+    element.type = "button";
+    element.textContent = label;
+    element.addEventListener("click", async function () {
+      element.disabled = true;
+      try { await action(); } catch (error) { status.textContent = error.message; }
+      finally { element.disabled = false; }
+    });
+    return element;
+  }
+  async function loadDocuments(reset) {
+    if (reset) { cursor = ""; documents.replaceChildren(); }
+    const data = await api("/v1/docs?limit=20&cursor=" + encodeURIComponent(cursor));
+    data.documents.forEach(function (doc) {
       const article = document.createElement("article");
       article.className = "dashboard-doc";
-      const title = doc.title || doc.id;
-      article.innerHTML =
-        '<div class="dashboard-doc-head">' +
-          '<div>' +
-            '<h3 class="dashboard-doc-title"></h3>' +
-            '<div class="dashboard-doc-meta">' +
-              '<span></span><span></span>' +
-            '</div>' +
-          '</div>' +
-          '<div class="dashboard-doc-actions">' +
-            '<button class="btn-action" type="button">Copy URL</button>' +
-            '<button class="btn-action btn-danger" type="button">Delete</button>' +
-          '</div>' +
-        '</div>' +
-        '<a class="dashboard-doc-link" target="_blank" rel="noreferrer"></a>';
-
-      article.querySelector(".dashboard-doc-title").innerHTML =
-        '<a href="' + doc.url + '" class="dashboard-doc-title-link">' + escapeHTML(title) + '</a>';
-      article.querySelector(".dashboard-doc-meta span:first-child").textContent = "ID: " + doc.id;
-      article.querySelector(".dashboard-doc-meta span:last-child").textContent = "Created: " + formatDate(doc.created_at);
-      const link = article.querySelector(".dashboard-doc-link");
-      link.href = doc.url;
-      link.textContent = doc.url;
-
-      article.querySelectorAll(".btn-action")[0].addEventListener("click", function () {
-        copyText(doc.url, "Link copied");
-      });
-      article.querySelectorAll(".btn-action")[1].addEventListener("click", async function () {
+      const link = document.createElement("a");
+      link.href = doc.url; link.textContent = doc.title || doc.id;
+      link.target = "_blank"; link.rel = "noreferrer";
+      article.append(link, button("Copy URL", function () { return copyText(doc.url); }), button("Delete", async function () {
         if (!window.confirm("Delete this document?")) return;
-        try {
-          const res = await fetch("/v1/" + encodeURIComponent(doc.id), {
-            method: "DELETE",
-            headers: { Authorization: "Bearer " + activeToken }
-          });
-          if (!res.ok) throw new Error();
-          showToast("Document deleted");
-          loadDocs();
-        } catch (_) {
-          showToast("Delete failed");
-        }
-      });
-      docsEl.appendChild(article);
+        await api("/v1/" + encodeURIComponent(doc.id), "DELETE");
+        await refresh();
+      }));
+      documents.appendChild(article);
     });
+    cursor = data.next_cursor || "";
+    document.getElementById("account-more").hidden = !cursor;
+    if (!documents.childElementCount) documents.textContent = "No documents yet.";
   }
-
-  // ── load docs ────────────────────────────────────────────────────
-  async function loadDocs() {
-    setStatus("Loading...");
-    showList();
+  async function loadCredentials() {
+    const connections = await api("/v1/connections");
+    const target = document.getElementById("account-connections"); target.replaceChildren();
+    connections.connections.forEach(function (connection) {
+      const row = document.createElement("div"); row.className = "dashboard-doc";
+      const label = document.createElement("span"); label.textContent = connection.name + " · " + connection.scopes + (connection.revoked_at ? " · Revoked" : ""); row.appendChild(label);
+      if (!connection.revoked_at) row.appendChild(button("Disconnect", async function () {
+        if (!window.confirm("Disconnect this MCP client?")) return;
+        await api("/v1/connections/" + encodeURIComponent(connection.id), "DELETE"); await loadCredentials();
+      }));
+      target.appendChild(row);
+    });
+    if (!connections.connections.length) target.textContent = "No connected MCP clients.";
+  }
+  async function refresh() {
+    if (pending) return;
+    pending = true; status.textContent = "Loading…";
     try {
-      const res = await fetch("/v1/docs", {
-        headers: { Authorization: "Bearer " + activeToken }
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const items = Array.isArray(data.documents) ? data.documents : [];
-      setStatus(items.length + " document" + (items.length === 1 ? "" : "s"));
-      renderDocs(items);
-    } catch (_) {
-      showToast("Load failed — check your token");
-      showAuth();
-    }
+      const me = await api("/v1/auth/me"); csrf = me.csrf_token;
+      document.getElementById("account-email").textContent = me.account.github_login;
+      const usage = await api("/v1/usage");
+      document.getElementById("account-usage").textContent = usage.document_count + " documents";
+      await loadDocuments(true); await loadCredentials(); status.textContent = "";
+    } catch (error) { status.textContent = error.message; }
+    finally { pending = false; }
   }
-
-  // ── enter dashboard with token ───────────────────────────────────
-  function enterWithToken(token) {
-    activeToken = token;
-    setCookie(token);
-    loadDocs();
-  }
-
-  // ── bootstrap: check URL param → cookie → show auth ─────────────
-  const params = new URLSearchParams(window.location.search);
-  const urlToken = params.get("token");
-
-  if (urlToken) {
-    // Clean token from URL bar so it's not visible or shareable
-    params.delete("token");
-    const newUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
-    history.replaceState(null, "", newUrl);
-    enterWithToken(urlToken);
-  } else {
-    const cookieToken = getCookie();
-    if (cookieToken) {
-      activeToken = cookieToken;
-      loadDocs();
-    } else {
-      showAuth();
-    }
-  }
-
-  // ── events ───────────────────────────────────────────────────────
-  loadButton.addEventListener("click", function () {
-    const t = (tokenInput.value || "").trim();
-    if (!t) { showToast("Token is empty"); return; }
-    enterWithToken(t);
+  document.getElementById("account-refresh").addEventListener("click", refresh);
+  document.getElementById("account-more").addEventListener("click", function () { loadDocuments(false).catch(function(error) { status.textContent = error.message; }); });
+  document.getElementById("account-logout").addEventListener("click", async function () {
+    try { await api("/v1/auth/logout", "POST", {}); window.location.assign("/login"); }
+    catch (error) { status.textContent = error.message; }
   });
-
-  tokenInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") loadButton.click();
+  tokenButton.addEventListener("click", async function () {
+    tokenButton.disabled = true;
+    try {
+      if (visibleToken) { visibleToken = ""; tokenText.textContent = mask; tokenButton.textContent = "Show token"; tokenButton.setAttribute("aria-expanded", "false"); }
+      else { const result = await api("/v1/account/token/reveal", "POST", {}); visibleToken = result.token; tokenText.textContent = visibleToken; tokenButton.textContent = "Hide token"; tokenButton.setAttribute("aria-expanded", "true"); }
+    } catch (error) { status.textContent = error.message; }
+    finally { tokenButton.disabled = false; }
   });
-
-  refreshButton.addEventListener("click", function () {
-    if (activeToken) loadDocs();
+  document.getElementById("copy-token").addEventListener("click", async function () {
+    try { const result = await api("/v1/account/token/reveal", "POST", {}); await copyText(result.token); status.textContent = "Token copied."; }
+    catch (error) { status.textContent = error.message; }
   });
-
-  switchButton.addEventListener("click", function () {
-    clearCookie();
-    activeToken = "";
-    tokenInput.value = "";
-    docsEl.innerHTML = "";
-    emptyEl.style.display = "none";
-    showAuth();
-  });
+  window.addEventListener("pagehide", function () { visibleToken = ""; tokenText.textContent = mask; });
+  refresh();
 })();
 
 // ── escapeHTML helper ──────────────────────────────────────────────

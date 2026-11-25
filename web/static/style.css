@@ -889,6 +889,7 @@ main {
 }
 
 .dashboard-shell {
+  min-width: 0;
   display: grid;
   gap: 1.6rem;
 }
@@ -921,7 +922,15 @@ main {
 
 .dashboard-auth,
 .dashboard-list {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 2.2rem;
+}
+
+#account-token {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 1rem 0;
 }
 
 .dashboard-label {

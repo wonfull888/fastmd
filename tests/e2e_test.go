@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/wonfull888/fastmd/internal/store"
 )
 
 // Exercise the actual CLI, shell helper, installer and server with an isolated
@@ -44,7 +46,21 @@ func TestCLIAndSkillEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(server, "--port", fmt.Sprint(port), "--db", filepath.Join(dir, "test.db"))
+	dbPath := filepath.Join(dir, "test.db")
+	db, err := store.New(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, err := db.GitHubLogin(1, "e2e-owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := db.DefaultToken(user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	cmd := exec.Command(server, "--port", fmt.Sprint(port), "--db", dbPath)
 	cmd.Stdout, cmd.Stderr = log, log
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -71,10 +87,17 @@ func TestCLIAndSkillEndToEnd(t *testing.T) {
 	if err := os.MkdirAll(home, 0700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(home, ".config/fastmd"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	credential, _ := json.Marshal(map[string]any{"servers": map[string]any{endpoint: map[string]string{"token": token}}})
+	if err := os.WriteFile(filepath.Join(home, ".config/fastmd/credentials.json"), credential, 0600); err != nil {
+		t.Fatal(err)
+	}
 	envFor := func(home string) []string {
 		env := []string{}
 		for _, item := range os.Environ() {
-			if !strings.HasPrefix(item, "HOME=") && !strings.HasPrefix(item, "FASTMD_BASE_URL=") {
+			if !strings.HasPrefix(item, "HOME=") && !strings.HasPrefix(item, "FASTMD_BASE_URL=") && !strings.HasPrefix(item, "FASTMD_API_TOKEN=") {
 				env = append(env, item)
 			}
 		}
@@ -190,12 +213,10 @@ func TestCLIAndSkillEndToEnd(t *testing.T) {
 	skillID, _ := parseURL(run(home, changed, true, "sh", helper))
 	raw(skillID, changed, 200)
 	freshHome := filepath.Join(dir, "fresh-skill-home")
-	freshID, _ := parseURL(run(freshHome, original, true, "sh", helper))
-	raw(freshID, original, 200)
+	run(freshHome, original, false, "sh", helper)
 	// List ownership and ensure updates have not created extra documents.
-	token, _ := os.ReadFile(filepath.Join(home, ".config/fastmd/token"))
 	req, _ := http.NewRequest("GET", endpoint+"/v1/docs", nil)
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(token)))
+	req.Header.Set("Authorization", "Bearer "+token)
 	response, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
