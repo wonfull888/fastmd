@@ -48,7 +48,7 @@ func TestMCPToolsAndOAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 	cookie := &http.Cookie{Name: "fastmd_session", Value: sessionRaw}
-	unauthorized := serve(e, "POST", "/mcp", "{}", nil, "", "")
+	unauthorized := serve(e, "POST", server.URL+"/mcp", "{}", nil, "", "")
 	if unauthorized.Code != 401 || !strings.Contains(unauthorized.Header().Get("WWW-Authenticate"), "resource_metadata") {
 		t.Fatal("missing MCP auth discovery")
 	}
