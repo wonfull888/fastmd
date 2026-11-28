@@ -3,7 +3,6 @@ package app
 import (
 	"crypto/subtle"
 	"errors"
-	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -234,8 +233,6 @@ func pagination(cursor, limit string) (int, int, error) {
 	return offset, size, nil
 }
 
-var loginPage = template.Must(template.New("login").Parse(`<!doctype html><html><head><meta charset="utf-8"><title>Sign in · fastmd</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/static/style.css"></head><body><main class="container"><section class="card" style="max-width:600px;margin:4rem auto;padding:2rem"><h1>Sign in to fastmd</h1><p>Use your GitHub account. No password or email code required.</p><a class="btn-primary" href="{{.Start}}">Continue with GitHub</a><p>fastmd only uses your public GitHub identity. It does not request repository access.</p></section></main></body></html>`))
-
 func safeReturn(value string) string {
 	parsed, err := url.Parse(value)
 	if err != nil || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") || strings.ContainsAny(value, "\\\r\n") || parsed.IsAbs() || parsed.Host != "" {
@@ -244,9 +241,9 @@ func safeReturn(value string) string {
 	return value
 }
 func (a *App) LoginPage(c echo.Context, returnPath string) error {
-	c.Response().Header().Set("Cache-Control", "no-store")
-	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
-	return loginPage.Execute(c.Response(), map[string]string{"Start": "/auth/github/start?next=" + url.QueryEscape(safeReturn(returnPath))})
+	return renderAuth(c, http.StatusOK, "login", authPageData{
+		Title: "Sign in", Start: "/auth/github/start?next=" + url.QueryEscape(safeReturn(returnPath)),
+	})
 }
 func (a *App) Session(c echo.Context) (store.Credential, error) {
 	p, err := a.principal(c)

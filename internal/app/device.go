@@ -2,15 +2,11 @@ package app
 
 import (
 	"errors"
-	"html/template"
-	"net/http"
 	"net/url"
 
 	"github.com/labstack/echo/v4"
 	"github.com/wonfull888/fastmd/internal/store"
 )
-
-var devicePage = template.Must(template.New("device").Parse(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect CLI · fastmd</title><link rel="stylesheet" href="/static/style.css"></head><body><main class="container"><section class="card" style="max-width:600px;margin:4rem auto;padding:2rem"><h1>Connect fastmd CLI</h1><p>Signed in as {{.Login}}. Only approve a code shown by a CLI you started.</p><form method="post"><label>CLI code <input name="user_code" value="{{.Code}}" required maxlength="9" autocomplete="off"></label><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button name="decision" value="allow">Connect</button><button name="decision" value="deny">Cancel</button></form></section></main></body></html>`))
 
 func (a *App) registerDevice(e *echo.Echo) {
 	e.POST("/v1/auth/device", func(c echo.Context) error {
@@ -51,18 +47,21 @@ func (a *App) registerDevice(e *echo.Echo) {
 		if err != nil {
 			return a.LoginPage(c, "/auth/device?user_code="+url.QueryEscape(c.QueryParam("user_code")))
 		}
-		c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
-		return devicePage.Execute(c.Response(), map[string]string{"Login": p.User.GitHubLogin, "Code": c.QueryParam("user_code"), "CSRF": p.CSRF})
+		return renderAuth(c, 200, "device", authPageData{Title: "Connect terminal", Login: p.User.GitHubLogin, Code: c.QueryParam("user_code"), CSRF: p.CSRF})
 	})
 	e.POST("/auth/device", func(c echo.Context) error {
 		// HTML forms carry their CSRF token in the form body.
 		c.Request().Header.Set("X-CSRF-Token", c.FormValue("csrf_token"))
 		return a.withSession(func(c echo.Context, p store.Credential) error {
-			if err := a.DB.DecideDevice(c.FormValue("user_code"), p.User.ID, c.FormValue("decision") == "allow"); err != nil {
-				return oauthError(c, 400, "expired_token", "code expired or was already used")
+			allowed := c.FormValue("decision") == "allow"
+			if err := a.DB.DecideDevice(c.FormValue("user_code"), p.User.ID, allowed); err != nil {
+				if !errors.Is(err, store.ErrUnauthorized) {
+					return a.fail(c, err)
+				}
+				return renderAuth(c, 400, "device", authPageData{Title: "Connect terminal", Login: p.User.GitHubLogin, Code: c.FormValue("user_code"), CSRF: p.CSRF,
+					Error: "This code is invalid, expired, or already used. Start a new login in your terminal."})
 			}
-			c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
-			return c.String(http.StatusOK, "CLI authorization completed. You can close this page and return to your terminal.")
+			return renderDeviceResult(c, allowed)
 		})(c)
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"html/template"
 	"net"
 	"net/http"
 	"net/url"
@@ -94,12 +93,11 @@ func (a *App) registerClient(c echo.Context) error {
 
 var challengeFormat = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 var verifierFormat = regexp.MustCompile(`^[A-Za-z0-9._~-]{43,128}$`)
-var consentPage = template.Must(template.New("consent").Parse(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Authorize fastmd</title><link rel="stylesheet" href="/static/style.css"></head><body><main class="container"><section class="card" style="max-width:600px;margin:4rem auto;padding:2rem"><h1>Connect {{.Name}} to fastmd</h1><p>Signed in as {{.Login}}</p><p>Requested permissions: {{.Scope}}</p><form method="post" action="/oauth/authorize">{{range .Fields}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{end}}<input type="hidden" name="csrf_token" value="{{.CSRF}}"><button type="submit" name="decision" value="allow">Authorize</button><button type="submit" name="decision" value="deny">Cancel</button></form></section></main></body></html>`))
 
 func (a *App) authorize(c echo.Context) error {
 	c.Response().Header().Set("Cache-Control", "no-store")
 	if err := c.Request().ParseForm(); err != nil {
-		return oauthError(c, 400, "invalid_request", "invalid authorization request")
+		return authorizationError(c, 400, "invalid_request", "invalid authorization request")
 	}
 	values := c.Request().Form
 	if c.Request().Method == "POST" {
@@ -107,24 +105,24 @@ func (a *App) authorize(c echo.Context) error {
 	}
 	client, err := a.DB.OAuthClient(values.Get("client_id"))
 	if err != nil {
-		return oauthError(c, 400, "invalid_client", "unknown client")
+		return authorizationError(c, 400, "invalid_client", "unknown client")
 	}
 	redirect := values.Get("redirect_uri")
 	if !slices.Contains(client.RedirectURIs, redirect) || !validRedirect(redirect) {
-		return oauthError(c, 400, "invalid_request", "redirect URI does not match the registration")
+		return authorizationError(c, 400, "invalid_request", "redirect URI does not match the registration")
 	}
 	if values.Get("response_type") != "code" || values.Get("code_challenge_method") != "S256" || !challengeFormat.MatchString(values.Get("code_challenge")) {
-		return oauthError(c, 400, "invalid_request", "authorization code with S256 PKCE is required")
+		return authorizationError(c, 400, "invalid_request", "authorization code with S256 PKCE is required")
 	}
 	if values.Get("resource") != a.Options.PublicURL+"/mcp" {
-		return oauthError(c, 400, "invalid_target", "resource must identify this MCP server")
+		return authorizationError(c, 400, "invalid_target", "resource must identify this MCP server")
 	}
 	if len(values.Get("state")) < 8 || len(values.Get("state")) > 2048 {
-		return oauthError(c, 400, "invalid_request", "a valid state is required")
+		return authorizationError(c, 400, "invalid_request", "a valid state is required")
 	}
 	scopes, err := documentScopes(values.Get("scope"))
 	if err != nil {
-		return oauthError(c, 400, "invalid_scope", "unsupported scope")
+		return authorizationError(c, 400, "invalid_scope", "unsupported scope")
 	}
 	cookie, err := c.Cookie("fastmd_session")
 	var principal store.Credential
@@ -136,26 +134,24 @@ func (a *App) authorize(c echo.Context) error {
 	}
 	if err != nil {
 		if c.Request().Method != "GET" {
-			return oauthError(c, 401, "login_required", "sign in before authorizing")
+			return authorizationError(c, 401, "login_required", "sign in before authorizing")
 		}
 		return a.LoginPage(c, "/oauth/authorize?"+values.Encode())
 	}
 	if c.Request().Method == "GET" {
-		type field struct{ Name, Value string }
-		fields := []field{}
+		fields := []authField{}
 		for _, name := range []string{"client_id", "redirect_uri", "response_type", "state", "code_challenge", "code_challenge_method", "resource"} {
-			fields = append(fields, field{name, values.Get(name)})
+			fields = append(fields, authField{name, values.Get(name)})
 		}
-		fields = append(fields, field{"scope", scopes})
-		c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
-		return consentPage.Execute(c.Response(), map[string]any{"Name": client.Name, "Login": principal.User.GitHubLogin, "Scope": scopes, "Fields": fields, "CSRF": principal.CSRF})
+		fields = append(fields, authField{"scope", scopes})
+		return renderAuth(c, 200, "consent", authPageData{Title: "Connect " + client.Name, Name: client.Name, Login: principal.User.GitHubLogin, Fields: fields, CSRF: principal.CSRF, Permissions: consentPermissions(scopes)})
 	}
 	if origin := c.Request().Header.Get("Origin"); origin != "" && origin != a.Options.PublicURL {
-		return oauthError(c, 403, "access_denied", "invalid request origin")
+		return authorizationError(c, 403, "access_denied", "invalid request origin")
 	}
 	csrf := values.Get("csrf_token")
 	if csrf == "" || subtle.ConstantTimeCompare([]byte(csrf), []byte(principal.CSRF)) != 1 {
-		return oauthError(c, 403, "access_denied", "invalid CSRF token")
+		return authorizationError(c, 403, "access_denied", "invalid CSRF token")
 	}
 	target, _ := url.Parse(redirect)
 	query := target.Query()

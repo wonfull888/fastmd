@@ -53,7 +53,7 @@ func (a *App) githubStart(c echo.Context) error {
 	c.Response().Header().Set("Cache-Control", "no-store")
 	g := a.Options.GitHub
 	if g.ClientID == "" || g.ClientSecret == "" {
-		return a.fail(c, service.Failure("LOGIN_NOT_CONFIGURED", "GitHub login is not configured", 503))
+		return a.githubPageError(c, 503, "LOGIN_NOT_CONFIGURED", "Sign-in is temporarily unavailable. Please try again later.", "/dashboard")
 	}
 	state, err := store.RandomSecret("")
 	if err != nil {
@@ -77,19 +77,19 @@ func (a *App) githubCallback(c echo.Context) error {
 	cookie, err := c.Cookie("fastmd_github_state")
 	state := c.QueryParam("state")
 	if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
-		return a.fail(c, service.Failure("INVALID_STATE", "sign-in expired or was not started in this browser; try again", 400))
+		return a.githubPageError(c, 400, "INVALID_STATE", "This sign-in expired or was not started in this browser. Please start again.", "/dashboard")
 	}
 	c.SetCookie(&http.Cookie{Name: "fastmd_github_state", Value: "", Path: "/auth/github", MaxAge: -1, HttpOnly: true, Secure: strings.HasPrefix(a.Options.PublicURL, "https://"), SameSite: http.SameSiteLaxMode})
 	verifier, next, err := a.DB.ConsumeGitHub(state)
 	if err != nil {
-		return a.fail(c, service.Failure("INVALID_STATE", "sign-in expired or was already used; try again", 400))
+		return a.githubPageError(c, 400, "INVALID_STATE", "This sign-in expired or was already used. Please start again.", "/dashboard")
 	}
 	if c.QueryParam("error") != "" || c.QueryParam("code") == "" {
-		return a.fail(c, service.Failure("LOGIN_CANCELLED", "GitHub sign-in was cancelled; try again", 400))
+		return a.githubPageError(c, 400, "LOGIN_CANCELLED", "GitHub sign-in was cancelled. You can try again when you are ready.", next)
 	}
 	profile, err := a.githubIdentity(c.Request().Context(), c.QueryParam("code"), verifier)
 	if err != nil {
-		return a.fail(c, service.Failure("GITHUB_UNAVAILABLE", "GitHub sign-in could not be completed; try again", 502))
+		return a.githubPageError(c, 502, "GITHUB_UNAVAILABLE", "GitHub sign-in could not be completed. Please try again.", next)
 	}
 	user, err := a.DB.GitHubLogin(profile.ID, profile.Login)
 	if err != nil {
@@ -150,4 +150,12 @@ func (a *App) githubIdentity(ctx context.Context, code, verifier string) (github
 	}
 	// GitHub tokens are used only to fetch identity and are never persisted.
 	return profile, nil
+}
+
+func (a *App) githubPageError(c echo.Context, status int, code, message, next string) error {
+	if strings.Contains(c.Request().Header.Get("Accept"), "text/html") {
+		return renderAuth(c, status, "error", authPageData{Title: "Unable to sign in", Message: message,
+			Retry: "/login?next=" + url.QueryEscape(safeReturn(next))})
+	}
+	return a.fail(c, service.Failure(code, message, status))
 }
